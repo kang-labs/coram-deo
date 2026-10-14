@@ -680,6 +680,15 @@ class _ItemsSection extends StatelessWidget {
                                 value: item.parts[k].type,
                                 onChanged: (t) => _setPart(i, k, item.parts[k].copyWith(type: t)),
                               ),
+                              // ·가 있는 칸(mark)만: · 고를 때 사유를 받을지
+                              if (item.parts[k].type == PartType.mark)
+                                SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  dense: true,
+                                  title: const Text('· 고를 때 사유 받기'),
+                                  value: item.parts[k].dotReason,
+                                  onChanged: (v) => _setPart(i, k, item.parts[k].copyWith(dotReason: v)),
+                                ),
                               const SizedBox(height: 14),
                             ],
                           ),

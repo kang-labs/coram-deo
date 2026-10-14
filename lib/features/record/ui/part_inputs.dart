@@ -129,7 +129,7 @@ class _ChoiceInput extends ConsumerWidget {
   Future<void> _select(BuildContext context, WidgetRef ref, String? code, String? note) async {
     final notifier = ref.read(courseRecordProvider.notifier);
     final mark = MarkValue.fromCode(code);
-    if (mark != null && mark.needsNote) {
+    if (mark != null && part.needsNote(mark)) {
       // 사유는 꼭 적어요. 취소하면 바꾸지 않아요.
       final n = await _askNote(context, note);
       if (n == null || n.trim().isEmpty) return;
@@ -164,7 +164,8 @@ class _ChoiceInput extends ConsumerWidget {
         ),
       ],
     );
-    if (note == null) return row;
+    // 사유를 안 받는 칸이면 예전 사유가 남아 있어도 숨겨요
+    if (note == null || !part.dotReason) return row;
     // 사유: 줄 아래 작은 글씨, 누르면 고치기
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

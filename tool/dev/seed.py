@@ -39,7 +39,7 @@ DEFAULT_ITEMS = [
     {"id": "qt", "label": "큐티", "parts": [part("큐티", "days")]},
     {"id": "prayer", "label": "기도", "parts": [part("기도", "days")]},
     {"id": "dawn", "label": "새벽기도", "parts": [part("새벽", "dawn")]},
-    {"id": "task", "label": "강사 특별과제", "parts": [part("과제")]},
+    {"id": "task", "label": "강사 특별과제", "parts": [{**part("과제"), "dotReason": False}]},  # ·는 과제 없음 → 사유 안 받음
     {"id": "verse", "label": "구절암송", "parts": [part("암송", "ox")]},
     {"id": "monday", "label": "월요목회 도고기도", "parts": [part("도고")]},
     {"id": "friday", "label": "금요기도회",

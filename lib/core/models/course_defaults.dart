@@ -2,7 +2,7 @@ import '../dates.dart';
 import 'course.dart';
 
 /// 새 반의 기본 체크 항목 (제자대학2학기 종이 표 그대로). 항목·칸 id는 폰 기록과 이어지니 바꾸지 마세요.
-/// 칸이 하나인 항목의 칸 id는 'main'. tool/dev/seed.py에도 같은 목록이 있어요 — 바꾸면 함께 고칩니다(테스트가 확인).
+/// 칸이 하나인 항목의 칸 id는 'main'. 강사 특별과제의 ·는 '과제 없음'이라 사유를 받지 않아요(dotReason: false). tool/dev/seed.py에도 같은 목록이 있어요 — 바꾸면 함께 고칩니다(테스트가 확인).
 const defaultItems = <ItemDef>[
   ItemDef(
     id: 'attend',
@@ -45,7 +45,7 @@ const defaultItems = <ItemDef>[
   ItemDef(
     id: 'task',
     label: '강사 특별과제',
-    parts: [PartDef(id: 'main', label: '과제', type: PartType.mark)],
+    parts: [PartDef(id: 'main', label: '과제', type: PartType.mark, dotReason: false)],
   ),
   ItemDef(
     id: 'verse',

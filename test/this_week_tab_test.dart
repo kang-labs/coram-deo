@@ -111,6 +111,15 @@ void main() {
     expect(prefs.getString('rec.jedae2'), '{"6":{"prep":{"main":"o"}}}');
   });
 
+  testWidgets('강사 특별과제의 ·는 사유 없이 바로 골라짐', (tester) async {
+    final (_, prefs) = await _pumpApp(tester);
+    // · 순서: 훈련 후기, 교재예습, 필독서, 강사 특별과제 …
+    await tester.tap(find.bySemanticsLabel('·').at(3));
+    await tester.pumpAndSettle();
+    expect(find.text('사유'), findsNothing);
+    expect(prefs.getString('rec.jedae2'), '{"6":{"task":{"main":"dot"}}}');
+  });
+
   testWidgets('주차 넘기기, 이번 주로 돌아오기, 체크표 줄 누르면 그 주로', (tester) async {
     final (container, _) = await _pumpApp(tester);
 

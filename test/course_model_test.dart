@@ -90,6 +90,26 @@ void main() {
     expect(PartType.attend.choices.map((v) => v.buttonLabel), ['○', 'X', '지각']);
   });
 
+  test('dotReason: 기본 true는 저장에서 빼고, 없으면 true로 읽음, 강사 특별과제만 false', () {
+    const p = PartDef(id: 'main', label: '과제', type: PartType.mark);
+    expect(p.toMap().containsKey('dotReason'), isFalse);
+    final off = p.copyWith(dotReason: false);
+    expect(off.toMap()['dotReason'], false);
+    expect(PartDef.fromMap(off.toMap(), itemId: 'task', index: 0), off);
+    expect(PartDef.fromMap(p.toMap(), itemId: 'task', index: 0).dotReason, isTrue);
+    expect(off.needsNote(MarkValue.dot), isFalse);
+    expect(p.needsNote(MarkValue.dot), isTrue);
+    expect(p.needsNote(MarkValue.o), isFalse);
+    expect(
+      [
+        for (final i in defaultItems)
+          for (final q in i.parts)
+            if (!q.dotReason) i.id,
+      ],
+      ['task'],
+    );
+  });
+
   test('새 항목 id는 기존과 겹치지 않음', () {
     final now = DateTime.utc(2026, 10, 14);
     final a = newItemId(['attend'], now: now);

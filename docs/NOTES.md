@@ -81,3 +81,6 @@
 - `SelectPills` 알약은 글자 폭만큼(Container alignment 대신 Center widthFactor 1 — Wrap 안에서 한 줄을 다 차지하던 것).
 - 주 날짜 범위 글자는 `week/ui/week_range_text.dart`(이번 주·주별 보기 공통).
 
+## 4차 수정 (2026-10-14)
+
+- `PartDef.dotReason`(기본 true, true면 저장에서 뺌, 없으면 true로 읽음). false면 ·를 사유 창 없이 바로 고르고 사유 줄도 숨김(`PartDef.needsNote`). 기본·seed: 강사 특별과제만 false. 관리자 항목 편집에서 mark 칸에만 '· 고를 때 사유 받기' 스위치.

@@ -57,7 +57,7 @@ enum MarkValue {
   /// 버튼 이름 (지각처럼 표보다 길게)
   final String buttonLabel;
 
-  /// 고를 때 사유를 꼭 적는 값 (· = 이번 주 해당 없음 등)
+  /// 고를 때 사유를 적는 값 (· = 이번 주 해당 없음 등). 칸마다 끌 수 있어요(PartDef.dotReason).
   bool get needsNote => this == dot;
 
   static MarkValue? fromCode(Object? code) {
@@ -72,11 +72,18 @@ enum MarkValue {
 /// [id]는 항목 안에서 겹치지 않는 키로, 폰 기록과 이어지니 바꾸지 않습니다.
 @immutable
 class PartDef {
-  const PartDef({required this.id, required this.label, required this.type});
+  const PartDef({required this.id, required this.label, required this.type, this.dotReason = true});
 
   final String id;
   final String label;
   final PartType type;
+
+  /// · 를 고를 때 사유를 받는지 (강사 특별과제처럼 ·가 '과제 없음'뿐이면 false).
+  /// 저장할 때 true(기본값)면 빼고, 없으면 true로 읽어요.
+  final bool dotReason;
+
+  /// 이 칸에서 [v]를 고를 때 사유를 받아야 하는지
+  bool needsNote(MarkValue v) => v.needsNote && dotReason;
 
   /// [itemId]·[index]는 id가 없던 예전 문서를 읽을 때 기본 칸 id를 정하는 데 씁니다.
   factory PartDef.fromMap(Map<String, dynamic> m, {required String itemId, required int index}) {
@@ -85,19 +92,21 @@ class PartDef {
       id: id is String && id.isNotEmpty ? id : legacyPartId(itemId, index),
       label: (m['label'] as String?) ?? '',
       type: PartType.fromName(m['type'] as String?),
+      dotReason: m['dotReason'] != false,
     );
   }
 
-  Map<String, dynamic> toMap() => {'id': id, 'label': label, 'type': type.name};
+  Map<String, dynamic> toMap() => {'id': id, 'label': label, 'type': type.name, if (!dotReason) 'dotReason': false};
 
-  PartDef copyWith({String? label, PartType? type}) =>
-      PartDef(id: id, label: label ?? this.label, type: type ?? this.type);
-
-  @override
-  bool operator ==(Object other) => other is PartDef && other.id == id && other.label == label && other.type == type;
+  PartDef copyWith({String? label, PartType? type, bool? dotReason}) =>
+      PartDef(id: id, label: label ?? this.label, type: type ?? this.type, dotReason: dotReason ?? this.dotReason);
 
   @override
-  int get hashCode => Object.hash(id, label, type);
+  bool operator ==(Object other) =>
+      other is PartDef && other.id == id && other.label == label && other.type == type && other.dotReason == dotReason;
+
+  @override
+  int get hashCode => Object.hash(id, label, type, dotReason);
 }
 
 /// 체크 항목 하나. [id]는 폰 기록과 이어지는 키라 바꾸지 않습니다.
