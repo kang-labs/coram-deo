@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "188449985743",
+    "project_id": "coram-deo-biblekang",
+    "storage_bucket": "coram-deo-biblekang.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188449985743:android:510796b67c11d5427413ba",
+        "android_client_info": {
+          "package_name": "kr.biblekang.coram_deo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBy0sBUpHEt-M9RXA1HWdsR9rM-biTaS78"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
