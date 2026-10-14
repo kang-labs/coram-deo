@@ -12,7 +12,20 @@
           "package_name": "kr.biblekang.coram_deo"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "188449985743-2pf6meb8qglu6lvtkrascsneam20jkeu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "kr.biblekang.coram_deo",
+            "certificate_hash": "f98233e1d446ee1b47a93948e026365cb049d205"
+          }
+        },
+        {
+          "client_id": "188449985743-a5ihvlqq1apr2dof4cs41hefo541d5vc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBy0sBUpHEt-M9RXA1HWdsR9rM-biTaS78"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "188449985743-a5ihvlqq1apr2dof4cs41hefo541d5vc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
