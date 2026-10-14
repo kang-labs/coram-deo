@@ -19,15 +19,15 @@ class ThisWeekTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final index = ref.watch(shownWeekIndexProvider);
-    final week = index == null ? null : course.weeks[index];
-    final classDate = week?.classDate;
-    if (index == null || week == null || classDate == null) {
+    if (index == null) {
       return const EmptyState(
         icon: Icons.event_note_rounded,
         title: '아직 일정표가 없어요',
         message: '관리자가 이 반의 일정을 넣으면 주마다 체크할 수 있어요.',
       );
     }
+    final week = course.weeks[index];
+    final classDate = week.classDate;
     final weekNo = index + 1;
     return ListView(
       padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 24),
@@ -53,10 +53,20 @@ class ThisWeekTab extends ConsumerWidget {
             ),
           ),
         ],
-        for (final item in course.items) ...[
-          const SizedBox(height: 12),
-          ItemCard(key: ValueKey('$weekNo/${item.id}'), item: item, week: weekNo, classDate: classDate, off: week.off),
-        ],
+        if (classDate == null) ...[
+          const SizedBox(height: 32),
+          const MutedText('이 주는 아직 날짜가 정해지지 않았어요.\n날짜가 정해지면 체크할 수 있어요.', textAlign: TextAlign.center),
+        ] else
+          for (final item in course.items) ...[
+            const SizedBox(height: 12),
+            ItemCard(
+              key: ValueKey('$weekNo/${item.id}'),
+              item: item,
+              week: weekNo,
+              classDate: classDate,
+              off: week.off,
+            ),
+          ],
       ],
     );
   }
@@ -75,13 +85,14 @@ class WeekSelector extends ConsumerWidget {
   final int index;
   final int count;
   final WeekInfo week;
-  final DateTime classDate;
+
+  /// 날짜가 정해지지 않은 주면 null
+  final DateTime? classDate;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.palette;
     final current = ref.watch(currentWeekIndexProvider);
-    final range = weekRange(classDate);
     void go(int i) => ref.read(pickedWeekProvider.notifier).state = i;
     return Column(
       children: [
@@ -102,8 +113,8 @@ class WeekSelector extends ConsumerWidget {
                       if (week.off) ...[const SizedBox(width: 6), const TinyBadge('휴강', tone: Tone.neutral)],
                     ],
                   ),
-                  Text(
-                    '${mdw(range.start)} ~ ${mdw(range.end)}',
+                  _RangeText(
+                    classDate: classDate,
                     style: TextStyle(fontSize: 14, color: p.inkSoft, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -123,6 +134,40 @@ class WeekSelector extends ConsumerWidget {
             label: const Text('이번 주로'),
           ),
       ],
+    );
+  }
+}
+
+/// 주 날짜 범위 한 줄. 넓으면 '10/11(일) ~ 10/17(토)', 좁으면 '10/11~10/17'로 줄여서 두 줄로 꺾이지 않게.
+class _RangeText extends StatelessWidget {
+  const _RangeText({required this.classDate, required this.style});
+
+  final DateTime? classDate;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = classDate;
+    if (d == null) return Text('날짜 미정', style: style);
+    final r = weekRange(d);
+    final full = '${mdw(r.start)} ~ ${mdw(r.end)}';
+    final short = '${md(r.start)}~${md(r.end)}';
+    return LayoutBuilder(
+      builder: (context, c) {
+        final tp = TextPainter(
+          // 화면 글꼴과 같은 글꼴로 재요
+          text: TextSpan(text: full, style: DefaultTextStyle.of(context).style.merge(style)),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        final fits = tp.width <= c.maxWidth;
+        tp.dispose();
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(fits ? full : short, maxLines: 1, softWrap: false, style: style),
+        );
+      },
     );
   }
 }

@@ -114,7 +114,10 @@ class SettingsTab extends ConsumerWidget {
               const SheetLabel('테마'),
               for (final id in AppThemeId.values)
                 ListTile(
-                  onTap: () => ref.read(themeIdProvider.notifier).select(id),
+                  onTap: () {
+                    ref.read(themeIdProvider.notifier).select(id);
+                    Navigator.pop(sheet);
+                  },
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                   leading: _Swatch(palette: id.palette),
                   title: Text(id.label),

@@ -11,7 +11,7 @@ import 'helpers/fake_course.dart';
 
 Widget _app(List<Override> overrides) => ProviderScope(
   overrides: overrides,
-  child: MaterialApp(theme: AppTheme.of(AppThemeId.blossom), home: const AdminScreen()),
+  child: MaterialApp(theme: AppTheme.of(AppThemeId.fallback), home: const AdminScreen()),
 );
 
 /// 로그인한 관리자 흉내 (이메일만)

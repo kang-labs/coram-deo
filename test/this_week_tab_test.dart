@@ -47,7 +47,8 @@ void main() {
     expect(find.text('제자대학2학기'), findsOneWidget);
     expect(find.text('22기 2학기 · 홍길동'), findsOneWidget);
     expect(find.text('6주차'), findsOneWidget);
-    expect(find.text('10/11(일) ~ 10/17(토)'), findsOneWidget);
+    // 400dp 폭에서는 요일까지 넣으면 한 줄에 안 들어가서 짧게 (두 줄로 꺾이지 않게)
+    expect(find.text('10/11~10/17'), findsOneWidget);
     expect(find.text('세계비전의 기쁨 I'), findsOneWidget);
     expect(find.text('요 4:35\n행 2:47'), findsOneWidget);
     expect(find.text('출석/후기'), findsOneWidget);

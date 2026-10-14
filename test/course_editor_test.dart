@@ -35,7 +35,7 @@ Future<_FakeRepo> _open(
     ProviderScope(
       overrides: [courseRepositoryProvider.overrideWithValue(repo)],
       child: MaterialApp(
-        theme: AppTheme.of(AppThemeId.blossom),
+        theme: AppTheme.of(AppThemeId.fallback),
         home: Builder(
           builder: (context) => Scaffold(
             body: Center(

@@ -46,16 +46,17 @@ double _widestWord(String label, TextStyle style, TextScaler scaler) {
 }
 
 /// 항목마다 칸 폭 (낱말이 잘리지 않을 만큼, 최소 폭 이상)
-List<List<double>> _columnWidths(List<ItemDef> items, TextScaler scaler) => [
+List<List<double>> _columnWidths(List<ItemDef> items, TextScaler scaler, TextStyle base) => [
   for (final item in items)
     if (item.parts.length == 1)
-      [math.max(_Size.minSingle, _widestWord(item.label, _Size.labelStyle, scaler) + 14)]
+      [math.max(_Size.minSingle, _widestWord(item.label, base.merge(_Size.labelStyle), scaler) + 14)]
     else
       () {
         final parts = [
-          for (final p in item.parts) math.max(_Size.minPart, _widestWord(p.label, _Size.partStyle, scaler) + 10),
+          for (final p in item.parts)
+            math.max(_Size.minPart, _widestWord(p.label, base.merge(_Size.partStyle), scaler) + 10),
         ];
-        final need = _widestWord(item.label, _Size.labelStyle, scaler) + 14;
+        final need = _widestWord(item.label, base.merge(_Size.labelStyle), scaler) + 14;
         final sum = parts.fold(0.0, (a, b) => a + b);
         // 항목 이름이 더 넓으면 칸마다 고르게 늘려요
         return sum >= need ? parts : [for (final w in parts) w + (need - sum) / parts.length];
@@ -76,7 +77,11 @@ class CheckTableTab extends ConsumerWidget {
       return const EmptyState(icon: Icons.grid_on_rounded, title: '아직 일정표가 없어요', message: '일정이 생기면 주차별 체크표가 보여요.');
     }
     final todayIndex = ref.watch(todayWeekIndexProvider);
-    final widths = _columnWidths(course.items, MediaQuery.textScalerOf(context));
+    final widths = _columnWidths(
+      course.items,
+      MediaQuery.textScalerOf(context),
+      DefaultTextStyle.of(context).style, // 화면 글꼴과 같은 글꼴로 재요
+    );
     void open(int i) {
       ref.read(pickedWeekProvider.notifier).state = i;
       ref.read(homeTabProvider.notifier).state = HomeTab.week;

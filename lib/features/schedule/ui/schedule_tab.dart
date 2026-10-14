@@ -41,7 +41,7 @@ class ScheduleTab extends ConsumerWidget {
     if (entries.isEmpty) {
       return const EmptyState(icon: Icons.event_note_rounded, title: '아직 일정표가 없어요', message: '관리자가 일정을 넣으면 여기에 보여요.');
     }
-    final current = ref.watch(currentWeekIndexProvider);
+    final current = ref.watch(todayWeekIndexProvider);
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 24),
       itemCount: entries.length,

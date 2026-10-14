@@ -42,7 +42,8 @@ class SoftCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: color ?? p.surface,
             borderRadius: radius,
-            border: borderColor == null ? null : Border.all(color: borderColor!, width: 2),
+            // 옅은 테두리로 카드 경계를 또렷하게, 강조할 때는 굵은 색 테두리
+            border: borderColor == null ? Border.all(color: p.line) : Border.all(color: borderColor!, width: 2),
           ),
           child: onTap == null ? content : InkWell(onTap: onTap, child: content),
         ),

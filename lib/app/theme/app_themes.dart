@@ -6,7 +6,8 @@ import 'app_palette.dart';
 ///
 /// [name]은 기기에 저장되는 키라서, 이미 출시한 테마의 이름은 바꾸지 마세요.
 enum AppThemeId {
-  blossom('블러썸', '로즈 핑크와 아이보리 (기본)', _blossom),
+  slate('슬레이트', '차분한 네이비와 밝은 회색 (기본)', _slate),
+  blossom('블러썸', '로즈 핑크와 아이보리', _blossom),
   milk('밀크', '깨끗하고 밝은 화이트', _milk),
   lavender('라벤더', '몽글몽글 연보라', _lavender),
   mint('민트', '산뜻한 민트와 하늘', _mint),
@@ -18,7 +19,8 @@ enum AppThemeId {
   final String description;
   final AppPalette palette;
 
-  static const fallback = AppThemeId.blossom;
+  /// 테마를 고른 적 없는 사람(저장값 없음)은 이 테마로 보여요.
+  static const fallback = AppThemeId.slate;
 
   static AppThemeId fromName(String? name) {
     for (final id in values) {
@@ -27,6 +29,31 @@ enum AppThemeId {
     return fallback;
   }
 }
+
+/// 기본: 깊은 네이비 + 밝은 회색 바탕, 흰 카드, 옅은 회색 선. ○·X·지각 색은 채도를 낮춰 차분하게.
+const _slate = AppPalette(
+  brightness: Brightness.light,
+  primary: Color(0xFF2F3E5C),
+  onPrimary: Colors.white,
+  primarySoft: Color(0xFFE5E9F0),
+  onPrimarySoft: Color(0xFF1F2A40),
+  accent: Color(0xFF5E7A99),
+  accentSoft: Color(0xFFE8EDF3),
+  warm: Color(0xFFB07D2E),
+  warmSoft: Color(0xFFF5EEDF),
+  success: Color(0xFF3E8467),
+  successSoft: Color(0xFFE2EFE8),
+  danger: Color(0xFFBA4F4B),
+  dangerSoft: Color(0xFFF6E4E3),
+  background: Color(0xFFF6F7F9),
+  surface: Colors.white,
+  surfaceMuted: Color(0xFFEEF0F3),
+  ink: Color(0xFF1F2633),
+  inkSoft: Color(0xFF687083),
+  hint: Color(0xFFB3B9C4),
+  line: Color(0xFFE2E5EA),
+  shadow: Color(0x0A1F2A40),
+);
 
 const _blossom = AppPalette(
   brightness: Brightness.light,
