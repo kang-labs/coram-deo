@@ -12,7 +12,6 @@ import '../../home/logic/home_providers.dart';
 import '../../record/logic/part_display.dart';
 import '../../record/logic/record_providers.dart';
 import '../../record/ui/mark_glyph.dart';
-import '../../week/logic/week_math.dart';
 import '../../week/logic/week_providers.dart';
 import '../logic/table_view_provider.dart';
 import 'week_pages_view.dart';
@@ -213,8 +212,6 @@ class _GridView extends ConsumerWidget {
                         itemId: course.items[j].id,
                         partId: course.items[j].parts[k].id,
                         type: course.items[j].parts[k].type,
-                        classDate: course.weeks[i].classDate,
-                        off: course.weeks[i].off,
                       ),
                     ),
               ],
@@ -256,66 +253,34 @@ class _GridView extends ConsumerWidget {
 }
 
 /// 표 칸 하나. 그 칸 값만 watch 해서 체크 하나에 칸 하나만 다시 그려요.
+/// 사유가 있는 ·는 누르면 사유를 보여 줘요 (표시는 가운데 점만).
 class _Cell extends ConsumerWidget {
-  const _Cell({
-    required this.week,
-    required this.itemId,
-    required this.partId,
-    required this.type,
-    required this.classDate,
-    required this.off,
-  });
+  const _Cell({required this.week, required this.itemId, required this.partId, required this.type});
 
   final int week;
   final String itemId;
   final String partId;
   final PartType type;
-  final DateTime? classDate;
-  final bool off;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.palette;
     final entry = ref.watch(courseRecordProvider.select((r) => r.entry(week, itemId, partId)));
-    final value = entry.value;
-    if (!type.isDaily) {
-      final mark = MarkValue.fromCode(value);
-      if (mark == null) return const SizedBox.shrink();
-      final glyph = MarkGlyph(value: mark, color: markTone(mark).colors(p).$1, size: 18);
-      final note = entry.note;
-      if (note == null) return glyph;
-      // 사유가 있으면 오른쪽 위에 작은 점, 누르면 사유를 보여 줘요
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => showInfoDialog(context, title: '$week주 사유', body: note),
-        child: SizedBox.expand(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              glyph,
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(color: p.accent, shape: BoxShape.circle),
-                ),
-              ),
-            ],
-          ),
-        ),
+    if (type.isDaily) {
+      return Text(
+        dailyCellText(entry.value),
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: p.ink),
       );
     }
-    final started = classDate != null && ref.watch(todayProvider.select((t) => weekStarted(classDate!, t)));
-    final text = dailyCellText(
-      type,
-      value,
-      scored: isScoredWeek(started: started, off: off),
-    );
-    return Text(
-      text,
-      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: text.startsWith('−') ? p.danger : p.ink),
+    final mark = MarkValue.fromCode(entry.value);
+    if (mark == null) return const SizedBox.shrink();
+    final glyph = MarkGlyph(value: mark, color: markTone(mark).colors(p).$1, size: 18);
+    final note = entry.note;
+    if (note == null) return glyph;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showInfoDialog(context, title: '$week주 사유', body: note),
+      child: SizedBox.expand(child: Center(child: glyph)),
     );
   }
 }

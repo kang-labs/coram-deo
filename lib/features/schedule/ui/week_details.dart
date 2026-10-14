@@ -101,7 +101,8 @@ class _LabeledRow extends StatelessWidget {
   }
 }
 
-/// 암송구절 하나: 본문을 크게, 장절은 아래 작게. 본문이 없으면 장절만.
+/// 암송구절 하나: 본문 뒤에 (장절)을 붙인 한 문단. 장절은 조금 작고 흐리게. 본문이 없으면 장절만.
+/// 예: 하나님의 약속은 … 영광을 돌리게 되느니라 (고후 1:20)
 class _VerseView extends StatelessWidget {
   const _VerseView({required this.verse, required this.dense});
 
@@ -112,19 +113,20 @@ class _VerseView extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = verse.text.trim();
     final ref = verse.ref.trim();
-    if (text.isEmpty) return Text(ref, style: TextStyle(fontSize: dense ? 14 : 15, height: 1.45));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          text,
-          style: TextStyle(fontSize: dense ? 15 : 17, fontWeight: FontWeight.w600, height: 1.55),
-        ),
-        if (ref.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          MutedText(ref, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+    final size = dense ? 14.0 : 15.0;
+    if (text.isEmpty) return Text(ref, style: TextStyle(fontSize: size, height: 1.45));
+    return Text.rich(
+      TextSpan(
+        text: text,
+        children: [
+          if (ref.isNotEmpty)
+            TextSpan(
+              text: ' ($ref)',
+              style: TextStyle(fontSize: size - 2, fontWeight: FontWeight.w600, color: context.palette.inkSoft),
+            ),
         ],
-      ],
+      ),
+      style: TextStyle(fontSize: size + 1, height: 1.55),
     );
   }
 }

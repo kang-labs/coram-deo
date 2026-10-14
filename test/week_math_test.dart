@@ -1,5 +1,4 @@
 import 'package:coram_deo/core/dates.dart';
-import 'package:coram_deo/core/models/course.dart';
 import 'package:coram_deo/features/record/logic/part_display.dart';
 import 'package:coram_deo/features/week/logic/week_math.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,12 +49,6 @@ void main() {
     expect(weekStarted(d(10, 24), d(10, 17)), isFalse);
   });
 
-  test('새벽기도 점수: 3회 이상 0, 2회 −1, 1회 −2, 0회 −3', () {
-    expect([for (var c = 0; c <= 7; c++) dawnScore(c)], [-3, -2, -1, 0, 0, 0, 0, 0]);
-    expect(scoreText(-1), '−1');
-    expect(scoreText(0), '0');
-  });
-
   test('7비트 값에서 한 날 수, 켜고 끄기', () {
     expect(countDays(0), 0);
     expect(countDays(127), 7);
@@ -65,20 +58,13 @@ void main() {
     expect(isDayOn(1 << 2, 2), isTrue);
   });
 
-  test('표 글자: days 한 날 수, dawn 점수(점수 매기는 주만)', () {
-    expect(dailyCellText(PartType.days, 127, scored: true), '7');
-    expect(dailyCellText(PartType.days, 0, scored: true), '');
-    expect(dailyCellText(PartType.days, 3, scored: false), '2');
-    expect(dailyCellText(PartType.dawn, 0x3, scored: true), '−1');
-    expect(dailyCellText(PartType.dawn, null, scored: true), '−3');
-    expect(dailyCellText(PartType.dawn, null, scored: false), '');
-    expect(dailyCellText(PartType.dawn, 0x7, scored: false), '');
-    expect(dailySummary(PartType.dawn, 0x3), '2회 → −1');
-    expect(dailySummary(PartType.dawn, 0x3, scored: false), '2회');
-    expect(dailySummary(PartType.days, 0x1F), '5/7');
-    expect(isScoredWeek(started: true, off: true), isFalse);
-    expect(isScoredWeek(started: false, off: false), isFalse);
-    expect(isScoredWeek(started: true, off: false), isTrue);
+  test('표 글자·합계: 한 날 수 (새벽기도도 같은 방식)', () {
+    expect(dailyCellText(127), '7');
+    expect(dailyCellText(0), '');
+    expect(dailyCellText(null), '');
+    expect(dailyCellText(3), '2');
+    expect(dailySummary(0x1F), '5/7');
+    expect(dailySummary(0), '0/7');
   });
 
   test('날짜 없는 주는 건너뛰고, 끝나면 날짜 있는 마지막 주', () {

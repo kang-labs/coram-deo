@@ -28,6 +28,8 @@ void main() {
     expect(jedae2.classDates.every((d) => d != null && d.weekday == DateTime.saturday), isTrue);
     expect(jedae2.weeks[2].off, isTrue);
     expect(jedae2.weeks.where((w) => w.off).length, 1);
+    expect(jedae2.weeks[0].verses.first.text, startsWith('하나님의 약속은'));
+    expect(jedae2.weeks.skip(1).expand((w) => w.verses).every((v) => v.text.isEmpty), isTrue);
     expect(jedae2.weeks[3].verses, const [Verse(ref: '딤후 2:21'), Verse(ref: '딤전 4:7,8')]);
     // 나눔은 한 줄 (줄바꿈 없음)
     expect(jedae2.weeks.every((w) => !w.sharing.contains('\n')), isTrue);

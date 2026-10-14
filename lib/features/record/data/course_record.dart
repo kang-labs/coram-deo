@@ -8,7 +8,7 @@ import '../../../core/models/course_defaults.dart' show legacyPartId;
 /// 반 하나의 내 체크 기록 (폰에만 저장). 주차(1부터) → 항목 id → 칸 id → 값.
 ///
 /// 칸 값: 고르는 칸은 `"o" | "x" | "dot" | "late"`, 요일 칸은 7비트 정수(bit0 = 그 주 첫날). 빈 값은 저장하지 않아요.
-/// 사유가 있는 값(· 등)은 `{"v": "dot", "note": "이번 주 과제 없음"}`으로 저장해요.
+/// 사유가 있는 값(· 등)은 `{"v": "dot", "note": "휴일"}`으로 저장해요.
 /// JSON 예: `{ "6": { "attend": {"att": "o", "review": "o"}, "prep": {"main": {"v": "dot", "note": "…"}}, "bible": {"main": 127} } }`
 ///
 /// 예전(v1) 형식 `{"6": {"attend": ["o", "o"]}}`(칸 순번 목록)도 읽어서 기본 칸 id로 옮겨요.

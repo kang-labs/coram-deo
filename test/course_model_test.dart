@@ -185,6 +185,19 @@ void main() {
     );
   });
 
+  test("예전 칸 종류 'dawn'(새벽 점수)은 days로 읽음", () {
+    expect(PartType.fromName('dawn'), PartType.days);
+    final item = ItemDef.fromMap({
+      'id': 'dawn',
+      'label': '새벽기도',
+      'parts': [
+        {'id': 'main', 'label': '새벽', 'type': 'dawn'},
+      ],
+    });
+    expect(item.parts.single.type, PartType.days);
+    expect(defaultItems.firstWhere((e) => e.id == 'dawn').parts.single.type, PartType.days);
+  });
+
   test('새 항목 id는 기존과 겹치지 않음', () {
     final now = DateTime.utc(2026, 10, 14);
     final a = newItemId(['attend'], now: now);

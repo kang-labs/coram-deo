@@ -25,12 +25,13 @@ release도 지금은 debug 키로 서명해요(`android/app/build.gradle.kts`).
 
 ## 반 데이터 넣기 (seed)
 
-처음 등록할 반 7개(설계서 §2)와 제자대학2학기 일정표(§4)를 넣어요. 같은 id 문서는 **통째로 덮어써요.**
+처음 등록할 반 7개(설계서 §2)와 제자대학2학기 일정표(§4)를 넣어요. 이미 있는 반은 건너뛰고, `--force`면 **통째로 덮어써요**(앱에서 고친 내용이 사라져요).
 
 ```bash
 firebase projects:list                       # 먼저: 로그인 토큰 새로 받기 (1시간이면 만료)
 python tool/dev/seed.py --dry-run            # 보낼 내용만 보기
-python tool/dev/seed.py                      # 7개 모두
+python tool/dev/seed.py                      # 없는 반만
+python tool/dev/seed.py --force              # 있는 반도 덮어쓰기
 python tool/dev/seed.py --only jedae2        # 한 반만
 ```
 

@@ -65,9 +65,3 @@ int countDays(int mask) {
 int toggleDay(int mask, int index) => (mask ^ (1 << index)) & ((1 << daysPerWeek) - 1);
 
 bool isDayOn(int mask, int index) => mask & (1 << index) != 0;
-
-/// 새벽기도 점수: 3회 이상 0, 2회 −1, 1회 −2, 0회 −3
-int dawnScore(int count) => count >= 3 ? 0 : count - 3;
-
-/// 점수 글자 (음수는 −, 0은 0)
-String scoreText(int score) => score < 0 ? '−${-score}' : '$score';

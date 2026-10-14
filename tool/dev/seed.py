@@ -3,7 +3,8 @@
 사용법:
     firebase projects:list          # 먼저 한 번: 로그인 토큰을 새로 받아요 (1시간 지나면 만료)
     python tool/dev/seed.py --dry-run          # 보낼 JSON만 출력
-    python tool/dev/seed.py                    # 7개 반 모두 넣기 (같은 id 문서는 통째로 덮어씀!)
+    python tool/dev/seed.py                    # 7개 반 중 서버에 없는 반만 넣기 (있는 반은 건너뜀)
+    python tool/dev/seed.py --force            # 있는 반도 통째로 덮어쓰기 (앱에서 고친 내용이 사라져요!)
     python tool/dev/seed.py --only jedae2      # 한 반만
 
 인증: ~/.config/configstore/firebase-tools.json 의 tokens.access_token (firebase CLI 로그인 계정).
@@ -38,7 +39,7 @@ DEFAULT_ITEMS = [
     {"id": "bible", "label": "성경읽기", "parts": [part("성경", "days")]},
     {"id": "qt", "label": "큐티", "parts": [part("큐티", "days")]},
     {"id": "prayer", "label": "기도", "parts": [part("기도", "days")]},
-    {"id": "dawn", "label": "새벽기도", "parts": [part("새벽", "dawn")]},
+    {"id": "dawn", "label": "새벽기도", "parts": [part("새벽", "days")]},
     {"id": "task", "label": "강사 특별과제", "parts": [{**part("과제"), "dotReason": False}]},  # ·는 과제 없음 → 사유 안 받음
     {"id": "verse", "label": "구절암송", "parts": [part("암송", "ox")]},
     {"id": "monday", "label": "월요목회 도고기도", "parts": [part("도고")]},
@@ -101,9 +102,15 @@ JEDAE2_EXTRAS = [
 ]
 
 
+# 사용자가 준 본문만 넣어요 (나머지 본문은 관리자가 앱에서 적어요)
+VERSE_TEXT = {
+    "고후 1:20": "하나님의 약속은 얼마든지 그리스도 안에서 예가 되니 그런즉 그로 말미암아 우리가 아멘 하여 하나님께 영광을 돌리게 되느니라",
+}
+
+
 def verses(refs: str) -> list[dict]:
-    """줄마다 장절 하나 → [{ref, text: ""}] (본문은 비워 둬요)"""
-    return [{"ref": r.strip(), "text": ""} for r in refs.split("\n") if r.strip()]
+    """줄마다 장절 하나 → [{ref, text}] (본문은 VERSE_TEXT에 있는 것만)"""
+    return [{"ref": r.strip(), "text": VERSE_TEXT.get(r.strip(), "")} for r in refs.split("\n") if r.strip()]
 
 
 def build_courses() -> dict[str, dict]:
@@ -157,6 +164,20 @@ def access_token() -> str:
         sys.exit(f"토큰을 못 읽었어요 ({path}): {e}\n먼저 `firebase login` 후 `firebase projects:list`를 실행해 주세요.")
 
 
+def exists(cid: str, token: str) -> bool:
+    """이미 서버에 있는 반인지"""
+    req = urllib.request.Request(f"{BASE}/courses/{cid}", headers={"Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req) as res:
+            res.read()
+        return True
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return False
+        hint = "\n토큰이 만료됐을 수 있어요: `firebase projects:list` 실행 후 다시 해 주세요." if e.code == 401 else ""
+        sys.exit(f"{cid} 확인 실패 ({e.code}): {e.read().decode('utf-8', 'replace')}{hint}")
+
+
 def put(cid: str, doc: dict, token: str) -> None:
     body = json.dumps({"fields": {k: to_value(v) for k, v in doc.items()}}).encode("utf-8")
     req = urllib.request.Request(
@@ -181,6 +202,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="하나님앞에서 반 7개를 Firestore에 넣습니다")
     ap.add_argument("--dry-run", action="store_true", help="보내지 않고 JSON만 출력")
     ap.add_argument("--only", metavar="ID", help="이 id 반만 (예: jedae2)")
+    ap.add_argument("--force", action="store_true", help="이미 있는 반도 통째로 덮어쓰기 (관리자가 앱에서 고친 내용이 사라져요!)")
     args = ap.parse_args()
 
     courses = build_courses()
@@ -197,6 +219,10 @@ def main() -> None:
     token = access_token()
     now = dt.datetime.now(dt.timezone.utc)
     for cid, doc in courses.items():
+        # 관리자가 앱에서 고친 내용을 지키려고, 이미 있는 반은 --force 없이는 건너뛰어요
+        if not args.force and exists(cid, token):
+            print(f"건너뛰었어요: courses/{cid} (이미 있어요. 덮어쓰려면 --force)")
+            continue
         put(cid, {**doc, "updatedAt": now}, token)
 
 

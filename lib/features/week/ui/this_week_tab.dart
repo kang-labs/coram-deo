@@ -58,13 +58,7 @@ class ThisWeekTab extends ConsumerWidget {
         ] else
           for (final item in course.items) ...[
             const SizedBox(height: 12),
-            ItemCard(
-              key: ValueKey('$weekNo/${item.id}'),
-              item: item,
-              week: weekNo,
-              classDate: classDate,
-              off: week.off,
-            ),
+            ItemCard(key: ValueKey('$weekNo/${item.id}'), item: item, week: weekNo, classDate: classDate),
           ],
       ],
     );

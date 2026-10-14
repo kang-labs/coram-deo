@@ -4,7 +4,7 @@
 
 ## 파일 지도
 
-- `lib/core/models/course.dart`: `Course`, `WeekInfo`(date·book·title·verses·sharing·off), `ExtraRow`, `ItemDef`, `PartDef`, `PartType`(mark/attend/days/dawn, 저장 키 = name), `MarkValue`(o/late/x, 저장 값 = code). 값 비교 `==` 있음.
+- `lib/core/models/course.dart`: `Course`, `WeekInfo`(date·book·title·verses·sharing·off), `ExtraRow`, `ItemDef`, `PartDef`, `PartType`(mark/ox/attend/days, 저장 키 = name, 예전 'dawn'은 days로 읽음), `MarkValue`(o/late/x, 저장 값 = code). 값 비교 `==` 있음.
 - `lib/core/models/course_defaults.dart`: 기본 항목 15개(`defaultItems`), 기록요령(`defaultGuide`), `newItemId`, `fillWeeks`. **`tool/dev/seed.py`와 같아야 함**(테스트가 확인).
 - `lib/core/dates.dart`: 날짜만(UTC 자정) 도우미 — `tryParseYmd`, `ymd`, `md`, `mdw`, `addDays`.
 - `lib/features/week/logic/week_math.dart`: 주차 계산(순수 Dart). `week_providers.dart`: `todayProvider`(앱 다시 열 때 갱신), `pickedWeekProvider`(고른 주, null = 오늘 주), `shownWeekIndexProvider`.
@@ -34,9 +34,9 @@
 ## 화면
 
 - 이번 주: ◀ N주차 · 날짜 범위 ▶, 오늘 주가 아니면 '이번 주로'. 일정 카드(교재·훈련 내용·암송구절·나눔, 휴강 배지). 항목 카드: 칸이 하나면 항목 이름을 제목으로, 여러 칸이면 항목 이름 아래 칸마다 한 줄.
-- 요일 칸: 요일 + M/d, 높이 58, 오늘 굵은 테두리, 미래는 흐리고 못 누름, 옆에 합계(성경 5/7, 새벽 2회 → −1).
+- 요일 칸: 요일 + M/d, 높이 58, 오늘 굵은 테두리, 미래는 흐리고 못 누름, 옆에 합계(성경 5/7, 새벽 2/7).
 - 체크표: 첫 열(주차) 고정, 나머지 가로 스크롤. 여러 칸 항목은 머리를 두 줄(항목 이름 / 칸 이름). 이번 주 줄 강조, 휴강 주 흐리게. 줄을 누르면 그 주 '이번 주'로.
-  - 표 글자: ○/지/X, days = 한 날 수(0이면 빈칸), dawn = 점수(그 주 시작 전이면 빈칸, 시작했으면 체크 없을 때 −3).
+  - 표 글자: ○/지/X, days = 한 날 수(0이면 빈칸).
 - 일정표: 주차 + 추가 줄(개강·졸업예배)을 날짜순으로. 주차를 누르면 그 주로.
 - 설정: 반 바꾸기(시트), 내 이름(앱바에 기수·학기 · 이름으로 표시), 기록요령, 테마(5가지, 기본 블러썸), 관리자 모드.
 - 앱바: 반 이름 + '기수·학기 · 내 이름'(모든 탭 공통).
@@ -67,7 +67,6 @@
 - 칸 종류: mark ○/X/·(dot), ox ○/X(구절암송), attend ○/X/지각(표는 '지'). 표시는 `record/ui/mark_glyph.dart`(직접 그린 ○·X·점, 지각은 글자) — 버튼·체크표 공통. 고른 버튼은 옅은 색 바탕 + 진한 표시, 안 고른 버튼은 흐린 표시.
 - 기본 테마 = 슬레이트(네이비 #2F3E5C + #F6F7F9). 테마를 고른 적 없으면(저장값 없음) 슬레이트, 블러썸 등은 고를 수 있음. 카드는 옅은 테두리.
 - 오늘: 자정 타이머 + 앱 다시 열 때 확인, 날짜가 바뀌면 고른 주차 초기화. '이번 주' 배지·강조는 오늘이 그 주 범위 안일 때만(`todayWeekIndexProvider`), 자동으로 고르는 주는 `currentWeekIndexProvider`(학기 전 1주, 끝나면 날짜 있는 마지막 주).
-- 새벽기도 점수는 시작했고 휴강이 아닌 주만(아니면 표 빈칸, 카드엔 'N회'만).
 - 체크표 칸 폭: 머리 글자를 띄어쓰기에서만 줄 바꾸고, 가장 긴 낱말이 들어가게 화면 글꼴로 재서 정함.
 - 주 날짜 범위: 한 줄에 안 들어가면 '10/11~10/17'로 짧게(보통 폰 폭에서는 짧은 쪽).
 - 관리자: 저장 검사 `admin/logic/course_validation.dart`(규칙과 같은 제한 `core/models/course_limits.dart`, 주 날짜 7일 이상 간격, id 겹침). 서버 확인은 5초까지만 기다리고(`CourseRepository.confirmedWithin`) 안 오면 '인터넷이 연결되면 올라가요'. 새 학기 복사는 날짜를 비움.
@@ -87,4 +86,12 @@
 - 서버 읽기 관대하게(`course.dart`의 `_str`·`_int`·`_bool`·`_maps`: 타입이 다르면 기본값, 모양 다른 항목 건너뜀), 반 문서 하나 실패는 `CourseRepository.parseCourse`가 null → 목록에서 빠짐. 새 필드는 추가만.
 - 이번 주 카드: 본문 없는 암송구절끼리는 줄 간격 없이(훈련 내용 줄처럼), 본문 있는 구절 사이만 띄움.
 - 주별 보기 여러 칸 항목: '칸 이름 + 값' 작은 줄을 오른쪽 정렬로 쌓음. ○·X·· ·지·– 는 모두 36 상자 안(줄마다 위치 같음), ·는 점을 키움(지름 = 크기의 36%), 사유는 값 아래 작은 글씨 최대 두 줄.
+
+## 5차 수정 (2026-10-14)
+
+- 새벽기도 점수 없앰: `PartType.dawn`·`dawnScore`·`scoreText`·`isScoredWeek` 삭제. 새벽기도 = days(한 날 수, 'N/7'), 점수는 사용자가 계산. 서버의 'dawn'은 `PartType.fromName`이 days로 읽음. 기록요령 글은 그대로.
+- 암송구절 표시: 본문 + ' (장절)'을 `Text.rich` 한 문단(장절은 2 작게·흐리게). seed는 1주 '고후 1:20'만 본문.
+- 표 보기: 사유 있는 ·도 가운데 점만(모서리 표시 없앰), 누르면 사유 창.
+- 사유 입력 예시: '예: 휴일'.
+- seed.py: 서버에 이미 있는 반은 건너뜀('건너뛰었어요'), `--force`일 때만 덮어씀(관리자가 앱에서 고친 내용 보호).
 

@@ -42,10 +42,10 @@ void main() {
   });
 
   test('사유: 값과 함께 저장, 다른 값으로 바꾸면 지워짐, JSON 왕복', () {
-    var r = CourseRecord.empty.withValue(6, 'prep', 'main', 'dot', note: ' 이번 주 과제 없음 ');
+    var r = CourseRecord.empty.withValue(6, 'prep', 'main', 'dot', note: ' 휴일 ');
     expect(r.value(6, 'prep', 'main'), 'dot');
-    expect(r.note(6, 'prep', 'main'), '이번 주 과제 없음');
-    expect(r.toJson(), '{"6":{"prep":{"main":{"v":"dot","note":"이번 주 과제 없음"}}}}');
+    expect(r.note(6, 'prep', 'main'), '휴일');
+    expect(r.toJson(), '{"6":{"prep":{"main":{"v":"dot","note":"휴일"}}}}');
     expect(CourseRecord.fromJson(r.toJson()), r);
     r = r.withValue(6, 'prep', 'main', 'o');
     expect(r.note(6, 'prep', 'main'), isNull);

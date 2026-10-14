@@ -102,7 +102,6 @@ class _WeekPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final week = course.weeks[index];
-    final classDate = week.classDate;
     return ListView(
       padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 4, AppLayout.sidePadding, 24),
       children: [
@@ -129,13 +128,7 @@ class _WeekPage extends StatelessWidget {
               children: [
                 for (var j = 0; j < course.items.length; j++) ...[
                   if (j > 0) const Divider(),
-                  _ItemRow(
-                    item: course.items[j],
-                    week: index + 1,
-                    classDate: classDate,
-                    off: week.off,
-                    valuesMaxWidth: c.maxWidth * 0.64,
-                  ),
+                  _ItemRow(item: course.items[j], week: index + 1, valuesMaxWidth: c.maxWidth * 0.64),
                 ],
               ],
             ),
@@ -154,25 +147,17 @@ class _WeekPage extends StatelessWidget {
 
 /// 항목 한 줄. 칸이 여러 개면 '출석 ○', '후기 X'를 오른쪽 정렬 작은 줄로 쌓아요.
 class _ItemRow extends StatelessWidget {
-  const _ItemRow({
-    required this.item,
-    required this.week,
-    required this.classDate,
-    required this.off,
-    required this.valuesMaxWidth,
-  });
+  const _ItemRow({required this.item, required this.week, required this.valuesMaxWidth});
 
   final ItemDef item;
   final int week;
-  final DateTime? classDate;
-  final bool off;
   final double valuesMaxWidth;
 
   @override
   Widget build(BuildContext context) {
     final single = item.parts.length == 1;
     Widget value(PartDef part, String? subLabel) =>
-        BigValue(part: part, week: week, itemId: item.id, classDate: classDate, off: off, subLabel: subLabel);
+        BigValue(part: part, week: week, itemId: item.id, subLabel: subLabel);
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 60),
       child: Padding(

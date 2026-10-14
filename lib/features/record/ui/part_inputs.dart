@@ -16,16 +16,13 @@ typedef PartRef = ({int week, String itemId, String partId});
 
 /// 체크 항목 카드 하나. 칸 종류마다 공통 입력([PartInput])으로 그려서 항목별 코드가 없어요.
 class ItemCard extends StatelessWidget {
-  const ItemCard({super.key, required this.item, required this.week, required this.classDate, this.off = false});
+  const ItemCard({super.key, required this.item, required this.week, required this.classDate});
 
   final ItemDef item;
 
   /// 주차 (1부터)
   final int week;
   final DateTime classDate;
-
-  /// 휴강 주 (체크는 하지만 새벽기도 점수는 안 매겨요)
-  final bool off;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +40,6 @@ class ItemCard extends StatelessWidget {
               part: item.parts[i],
               ref: (week: week, itemId: item.id, partId: item.parts[i].id),
               classDate: classDate,
-              off: off,
             ),
           ],
         ],
@@ -59,7 +55,6 @@ class PartInput extends StatelessWidget {
     required this.part,
     required this.ref,
     required this.classDate,
-    this.off = false,
     this.title,
     this.groupTitle,
   });
@@ -67,7 +62,6 @@ class PartInput extends StatelessWidget {
   final PartDef part;
   final PartRef ref;
   final DateTime classDate;
-  final bool off;
 
   /// 칸이 하나뿐인 항목: 항목 이름을 제목으로
   final String? title;
@@ -86,7 +80,6 @@ class PartInput extends StatelessWidget {
             part: part,
             pref: ref,
             classDate: classDate,
-            off: off,
             label: Text(label, style: labelStyle),
           )
         : _ChoiceInput(
@@ -121,7 +114,7 @@ class _ChoiceInput extends ConsumerWidget {
     context,
     title: '사유',
     label: '왜 ·인지 적어 주세요',
-    hint: '예: 이번 주 과제 없음',
+    hint: '예: 휴일',
     initialValue: current ?? '',
     maxLength: noteMaxLength,
   );
@@ -195,34 +188,24 @@ const noteMaxLength = 60;
 
 /// 요일 7칸 (요일 + 날짜). 오늘은 테두리, 아직 오지 않은 날은 누를 수 없어요. 옆에 합계.
 class _DailyInput extends ConsumerWidget {
-  const _DailyInput({
-    required this.part,
-    required this.pref,
-    required this.classDate,
-    required this.off,
-    required this.label,
-  });
+  const _DailyInput({required this.part, required this.pref, required this.classDate, required this.label});
 
   final PartDef part;
   final PartRef pref;
   final DateTime classDate;
-  final bool off;
   final Widget label;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mask = ref.watch(courseRecordProvider.select((r) => r.mask(pref.week, pref.itemId, pref.partId)));
     final today = ref.watch(todayProvider);
-    final count = countDays(mask);
-    final scored = isScoredWeek(started: weekStarted(classDate, today), off: off);
-    final summaryTone = part.type == PartType.dawn && scored && dawnScore(count) < 0 ? Tone.danger : Tone.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
             Expanded(child: label),
-            TinyBadge(dailySummary(part.type, mask, scored: scored), tone: summaryTone),
+            TinyBadge(dailySummary(mask)),
           ],
         ),
         const SizedBox(height: 10),

@@ -51,14 +51,12 @@ void main() {
     // 400dp 폭에서는 요일까지 넣으면 한 줄에 안 들어가서 짧게 (두 줄로 꺾이지 않게)
     expect(find.text('10/11~10/17'), findsOneWidget);
     expect(find.text('세계비전의 기쁨 I'), findsOneWidget);
-    // 본문이 있으면 본문을 크게 + 장절, 없으면 장절만
-    expect(find.text('눈을 들어 밭을 보라'), findsOneWidget);
-    expect(find.text('요 4:35'), findsOneWidget);
+    // 본문이 있으면 본문 뒤에 (장절)을 붙인 한 문단, 없으면 장절만
+    expect(find.text('눈을 들어 밭을 보라 (요 4:35)', findRichText: true), findsOneWidget);
     expect(find.text('행 2:47'), findsOneWidget);
     expect(find.text('훈련'), findsOneWidget);
     expect(find.text('금요기도회'), findsOneWidget);
-    expect(find.text('0/7'), findsNWidgets(3)); // 성경·큐티·기도
-    expect(find.text('0회 → −3'), findsOneWidget); // 새벽기도
+    expect(find.text('0/7'), findsNWidgets(4)); // 성경·큐티·기도·새벽기도
 
     // 성경읽기(첫 요일 칸 묶음)에서 일요일 10/11 체크 → 1/7, 저장됨
     await tester.tap(find.bySemanticsLabel('10/11(일)').first);
@@ -98,12 +96,12 @@ void main() {
 
     await tester.tap(dot);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '이번 주 과제 없음');
+    await tester.enterText(find.byType(TextField), '휴일');
     await tester.pump(); // 저장 버튼이 켜지게
     await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
-    expect(find.text('사유: 이번 주 과제 없음'), findsOneWidget);
-    expect(prefs.getString('rec.jedae2'), '{"6":{"prep":{"main":{"v":"dot","note":"이번 주 과제 없음"}}}}');
+    expect(find.text('사유: 휴일'), findsOneWidget);
+    expect(prefs.getString('rec.jedae2'), '{"6":{"prep":{"main":{"v":"dot","note":"휴일"}}}}');
 
     await tester.tap(find.bySemanticsLabel('○').at(2));
     await tester.pump();
@@ -157,16 +155,15 @@ void main() {
 
   testWidgets('주별 보기: 값을 크게(한 날 수·새벽 점수·지·사유), 비면 –, 보기 방식 기억', (tester) async {
     final rec =
-        '{"6":{"attend":{"att":"late"},"prep":{"main":{"v":"dot","note":"이번 주 과제 없음"}},'
+        '{"6":{"attend":{"att":"late"},"prep":{"main":{"v":"dot","note":"휴일"}},'
         '"bible":{"main":31},"dawn":{"main":7}}}';
     final (container, prefs) = await _pumpApp(tester, saved: {LocalStore.recordKey('jedae2'): rec});
     container.read(homeTabProvider.notifier).state = HomeTab.table;
     await tester.pumpAndSettle();
     expect(find.text('5'), findsOneWidget); // 성경 5일
-    expect(find.text('(3회)'), findsOneWidget); // 새벽 3회 → 0점
-    expect(find.text('0'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget); // 새벽기도 3일 (점수는 안 매겨요)
     expect(find.text('지'), findsOneWidget);
-    expect(find.text('이번 주 과제 없음'), findsOneWidget);
+    expect(find.text('휴일'), findsOneWidget);
     expect(find.text('–'), findsWidgets);
 
     await tester.tap(find.text('표'));

@@ -34,11 +34,8 @@ enum PartType {
   /// ○ / X / 지각 (출석)
   attend('○ / X / 지각', [MarkValue.o, MarkValue.x, MarkValue.late]),
 
-  /// 7일 체크 → 한 날 수
-  days('요일 (날 수)', []),
-
-  /// 7일 체크 → 새벽기도 점수
-  dawn('요일 (새벽 점수)', []);
+  /// 7일 체크 → 한 날 수 (성경·큐티·기도·새벽기도)
+  days('요일 (날 수)', []);
 
   const PartType(this.label, this.choices);
 
@@ -51,7 +48,9 @@ enum PartType {
   /// 요일 7칸으로 체크하는 종류
   bool get isDaily => choices.isEmpty;
 
+  /// 예전 이름도 읽어요: 'dawn'(새벽 점수, 없앰) → days. 모르는 이름은 mark.
   static PartType fromName(String? name) {
+    if (name == 'dawn') return days;
     for (final t in values) {
       if (t.name == name) return t;
     }

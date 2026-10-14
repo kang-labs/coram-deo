@@ -3,36 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
-import '../../record/logic/part_display.dart';
 import '../../record/logic/record_providers.dart';
 import '../../record/ui/mark_glyph.dart';
 import '../../week/logic/week_math.dart';
-import '../../week/logic/week_providers.dart';
 
 /// 주별 보기의 칸 값 하나를 크게 (멀리서도 보이게). 칸 값만 watch 해요.
 ///
 /// - ○ / X / · / 지: 직접 그린 표시(같은 크기 상자). 사유는 값 아래 작은 글씨
-/// - 성경·큐티·기도: 한 날 수 (예: 5 /7)
-/// - 새벽기도: 점수 (2회) — 휴강·시작 전 주는 비움
+/// - 성경·큐티·기도·새벽기도: 한 날 수 (예: 5 /7)
 /// - 비었으면 흐린 '–'
 class BigValue extends ConsumerWidget {
-  const BigValue({
-    super.key,
-    required this.part,
-    required this.week,
-    required this.itemId,
-    required this.classDate,
-    required this.off,
-    this.subLabel,
-  });
+  const BigValue({super.key, required this.part, required this.week, required this.itemId, this.subLabel});
 
   final PartDef part;
 
   /// 주차 (1부터)
   final int week;
   final String itemId;
-  final DateTime? classDate;
-  final bool off;
 
   static const valueSize = 26.0;
 
@@ -95,23 +82,6 @@ class BigValue extends ConsumerWidget {
 
     final mask = value is int ? value : 0;
     final count = countDays(mask);
-    if (part.type == PartType.dawn) {
-      final started = classDate != null && ref.watch(todayProvider.select((t) => weekStarted(classDate!, t)));
-      if (!isScoredWeek(started: started, off: off)) {
-        return count == 0 ? dash : Text('$count회', style: small.copyWith(fontSize: 16));
-      }
-      final score = dawnScore(count);
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Text(scoreText(score), style: big(score < 0 ? p.danger : p.ink)),
-          const SizedBox(width: 4),
-          Text('($count회)', style: small),
-        ],
-      );
-    }
     if (count == 0) return dash;
     return Row(
       mainAxisSize: MainAxisSize.min,

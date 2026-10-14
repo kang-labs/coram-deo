@@ -40,7 +40,7 @@ const defaultItems = <ItemDef>[
   ItemDef(
     id: 'dawn',
     label: '새벽기도',
-    parts: [PartDef(id: 'main', label: '새벽', type: PartType.dawn)],
+    parts: [PartDef(id: 'main', label: '새벽', type: PartType.days)],
   ),
   ItemDef(
     id: 'task',
