@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/dialogs.dart';
 import '../../../app/layout.dart';
 import '../../../app/widgets.dart';
 import '../../../core/dates.dart';
@@ -13,6 +14,8 @@ import '../../record/logic/record_providers.dart';
 import '../../record/ui/mark_glyph.dart';
 import '../../week/logic/week_math.dart';
 import '../../week/logic/week_providers.dart';
+import '../logic/table_view_provider.dart';
+import 'week_pages_view.dart';
 
 /// 체크표 머리·칸 크기
 abstract final class _Size {
@@ -63,8 +66,7 @@ List<List<double>> _columnWidths(List<ItemDef> items, TextScaler scaler, TextSty
       }(),
 ];
 
-/// 체크표: 종이와 같은 표(주차 × 항목). 첫 열(주차)은 고정, 나머지는 가로로 밀어 봐요.
-/// 주차 줄을 누르면 그 주 '이번 주' 화면으로 갑니다.
+/// 체크표 탭: 위에 '주별 | 표' 고르기(기기에 기억), 아래에 고른 보기.
 class CheckTableTab extends ConsumerWidget {
   const CheckTableTab({super.key, required this.course});
 
@@ -72,10 +74,46 @@ class CheckTableTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.palette;
     if (course.weeks.isEmpty) {
       return const EmptyState(icon: Icons.grid_on_rounded, title: '아직 일정표가 없어요', message: '일정이 생기면 주차별 체크표가 보여요.');
     }
+    final view = ref.watch(tableViewProvider);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: SelectPills<TableView>(
+              options: SelectPills.simple({for (final v in TableView.values) v: v.label}),
+              selected: view,
+              onSelected: (v) {
+                if (v != null) ref.read(tableViewProvider.notifier).select(v);
+              },
+            ),
+          ),
+        ),
+        Expanded(
+          child: switch (view) {
+            TableView.week => WeekPagesView(key: ValueKey(course.id), course: course),
+            TableView.grid => _GridView(course: course),
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// 표 보기: 종이와 같은 표(주차 × 항목). 첫 열(주차)은 고정, 나머지는 가로로 밀어 봐요.
+/// 주차 줄을 누르면 그 주 '이번 주' 화면으로 갑니다.
+class _GridView extends ConsumerWidget {
+  const _GridView({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
     final todayIndex = ref.watch(todayWeekIndexProvider);
     final widths = _columnWidths(
       course.items,
@@ -238,11 +276,36 @@ class _Cell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.palette;
-    final value = ref.watch(courseRecordProvider.select((r) => r.value(week, itemId, partId)));
+    final entry = ref.watch(courseRecordProvider.select((r) => r.entry(week, itemId, partId)));
+    final value = entry.value;
     if (!type.isDaily) {
       final mark = MarkValue.fromCode(value);
       if (mark == null) return const SizedBox.shrink();
-      return MarkGlyph(value: mark, color: markTone(mark).colors(p).$1, size: 18);
+      final glyph = MarkGlyph(value: mark, color: markTone(mark).colors(p).$1, size: 18);
+      final note = entry.note;
+      if (note == null) return glyph;
+      // 사유가 있으면 오른쪽 위에 작은 점, 누르면 사유를 보여 줘요
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showInfoDialog(context, title: '$week주 사유', body: note),
+        child: SizedBox.expand(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              glyph,
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(color: p.accent, shape: BoxShape.circle),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     final started = classDate != null && ref.watch(todayProvider.select((t) => weekStarted(classDate!, t)));
     final text = dailyCellText(

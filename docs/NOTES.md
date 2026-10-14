@@ -71,3 +71,13 @@
 - 체크표 칸 폭: 머리 글자를 띄어쓰기에서만 줄 바꾸고, 가장 긴 낱말이 들어가게 화면 글꼴로 재서 정함.
 - 주 날짜 범위: 한 줄에 안 들어가면 '10/11~10/17'로 짧게(보통 폰 폭에서는 짧은 쪽).
 - 관리자: 저장 검사 `admin/logic/course_validation.dart`(규칙과 같은 제한 `core/models/course_limits.dart`, 주 날짜 7일 이상 간격, id 겹침). 서버 확인은 5초까지만 기다리고(`CourseRepository.confirmedWithin`) 안 오면 '인터넷이 연결되면 올라가요'. 새 학기 복사는 날짜를 비움.
+
+## 3차 수정 (2026-10-14)
+
+- · 사유: `CourseRecord`에 `{"v","note"}`로 저장, `value()`는 값만, `note()`·`entry()`. `MarkValue.needsNote`(·)면 고를 때 `showTextInputDialog`(취소 = 그대로). 다른 값으로 바꾸면 사유 지움. 이번 주 카드는 줄 아래 '사유: …'(눌러서 고치기), 주별 보기는 · 옆 글자, 표는 작은 점 + 누르면 사유 창.
+- 암송구절: `WeekInfo.verses` = `List<Verse{ref, text}>`. 서버의 예전 여러 줄 글은 줄마다 장절로 읽음(`Verse.listFrom`). 화면은 본문 크게 + 장절 작게(`schedule/ui/week_details.dart`). 관리자 편집은 구절마다 장절·본문(여러 줄), 추가·삭제(주마다 6개), 저장 때 빈 구절 뺌. seed는 장절만(본문 비움, 저작권).
+- 나눔은 한 줄로 seed ('제자삼는 세계비전 part1 1,2장', 'part2 1,2장').
+- 체크표 탭: `table/logic/table_view_provider.dart`(prefs `tableView`, 기본 주별). 주별 = `table/ui/week_pages_view.dart`(PageView, 오늘 주부터, 줄 높이 60 이상, 값 26sp, 값 칸은 줄 폭의 64%까지), 값 하나 = `table/ui/big_value.dart`(칸 값만 watch). 표 = 예전 표(`_GridView`).
+- `SelectPills` 알약은 글자 폭만큼(Container alignment 대신 Center widthFactor 1 — Wrap 안에서 한 줄을 다 차지하던 것).
+- 주 날짜 범위 글자는 `week/ui/week_range_text.dart`(이번 주·주별 보기 공통).
+

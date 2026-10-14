@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/layout.dart';
 import '../../../app/widgets.dart';
-import '../../../core/dates.dart';
 import '../../../core/models/course.dart';
 import '../../record/ui/part_inputs.dart';
 import '../../schedule/ui/week_details.dart';
-import '../logic/week_math.dart';
 import '../logic/week_providers.dart';
+import 'week_range_text.dart';
 
 /// 이번 주: 주차 고르기, 이번 주 일정 카드, 항목 카드 목록
 class ThisWeekTab extends ConsumerWidget {
@@ -113,7 +112,7 @@ class WeekSelector extends ConsumerWidget {
                       if (week.off) ...[const SizedBox(width: 6), const TinyBadge('휴강', tone: Tone.neutral)],
                     ],
                   ),
-                  _RangeText(
+                  WeekRangeText(
                     classDate: classDate,
                     style: TextStyle(fontSize: 14, color: p.inkSoft, fontWeight: FontWeight.w600),
                   ),
@@ -134,40 +133,6 @@ class WeekSelector extends ConsumerWidget {
             label: const Text('이번 주로'),
           ),
       ],
-    );
-  }
-}
-
-/// 주 날짜 범위 한 줄. 넓으면 '10/11(일) ~ 10/17(토)', 좁으면 '10/11~10/17'로 줄여서 두 줄로 꺾이지 않게.
-class _RangeText extends StatelessWidget {
-  const _RangeText({required this.classDate, required this.style});
-
-  final DateTime? classDate;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    final d = classDate;
-    if (d == null) return Text('날짜 미정', style: style);
-    final r = weekRange(d);
-    final full = '${mdw(r.start)} ~ ${mdw(r.end)}';
-    final short = '${md(r.start)}~${md(r.end)}';
-    return LayoutBuilder(
-      builder: (context, c) {
-        final tp = TextPainter(
-          // 화면 글꼴과 같은 글꼴로 재요
-          text: TextSpan(text: full, style: DefaultTextStyle.of(context).style.merge(style)),
-          textDirection: TextDirection.ltr,
-          textScaler: MediaQuery.textScalerOf(context),
-          maxLines: 1,
-        )..layout();
-        final fits = tp.width <= c.maxWidth;
-        tp.dispose();
-        return FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(fits ? full : short, maxLines: 1, softWrap: false, style: style),
-        );
-      },
     );
   }
 }

@@ -75,19 +75,23 @@ class SelectPills<T> extends StatelessWidget {
         onTap: !enabled ? null : () => onSelected!(clearable && on ? null : o.value),
         child: Container(
           constraints: BoxConstraints(minWidth: minWidth, minHeight: 40),
-          alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: on ? soft : (enabled ? p.surface : p.surfaceMuted),
             borderRadius: BorderRadius.circular(100),
             border: Border.all(color: on ? fg.withValues(alpha: 0.55) : p.line, width: 1.5),
           ),
-          child: glyph != null
-              ? glyph!(o.value, color, on)
-              : Text(
-                  o.label,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
-                ),
+          // 가운데 정렬하되 알약 폭은 글자만큼만 (Container alignment는 Wrap 안에서 한 줄을 다 차지해요)
+          child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: glyph != null
+                ? glyph!(o.value, color, on)
+                : Text(
+                    o.label,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
+                  ),
+          ),
         ),
       ),
     );

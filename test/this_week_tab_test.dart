@@ -20,8 +20,9 @@ class _FixedToday extends TodayController {
 Future<(ProviderContainer, SharedPreferences)> _pumpApp(
   WidgetTester tester, {
   Size size = const Size(1080, 6000),
+  Map<String, Object> saved = const {},
 }) async {
-  SharedPreferences.setMockInitialValues({LocalStore.courseIdKey: 'jedae2', LocalStore.nameKey: '홍길동'});
+  SharedPreferences.setMockInitialValues({LocalStore.courseIdKey: 'jedae2', LocalStore.nameKey: '홍길동', ...saved});
   final prefs = await SharedPreferences.getInstance();
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 2.7;
@@ -120,9 +121,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('6주차'), findsOneWidget);
 
+    // 체크표 탭: 처음엔 주별 보기, 오늘 주(6주차)부터
     await tester.tap(find.text('체크표'));
     await tester.pumpAndSettle();
     expect(container.read(homeTabProvider), HomeTab.table);
+    expect(find.text('6주차'), findsOneWidget);
+    await tester.tap(find.byTooltip('지난 주'));
+    await tester.pumpAndSettle();
+    expect(find.text('5주차'), findsOneWidget);
+    await tester.tap(find.text('5주차 체크하러 가기'));
+    await tester.pumpAndSettle();
+    expect(container.read(homeTabProvider), HomeTab.week);
+    expect(find.text('5주차'), findsOneWidget);
+
+    // 표 보기: 주차 줄을 누르면 그 주로
+    await tester.tap(find.text('체크표'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('표'));
+    await tester.pumpAndSettle();
     expect(find.text('휴강'), findsWidgets);
     await tester.tap(find.text('3주'));
     await tester.pumpAndSettle();
@@ -130,15 +146,51 @@ void main() {
     expect(find.text('3주차'), findsOneWidget);
   });
 
+  testWidgets('주별 보기: 값을 크게(한 날 수·새벽 점수·지·사유), 비면 –, 보기 방식 기억', (tester) async {
+    final rec =
+        '{"6":{"attend":{"att":"late"},"prep":{"main":{"v":"dot","note":"이번 주 과제 없음"}},'
+        '"bible":{"main":31},"dawn":{"main":7}}}';
+    final (container, prefs) = await _pumpApp(tester, saved: {LocalStore.recordKey('jedae2'): rec});
+    container.read(homeTabProvider.notifier).state = HomeTab.table;
+    await tester.pumpAndSettle();
+    expect(find.text('5'), findsOneWidget); // 성경 5일
+    expect(find.text('(3회)'), findsOneWidget); // 새벽 3회 → 0점
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('지'), findsOneWidget);
+    expect(find.text('이번 주 과제 없음'), findsOneWidget);
+    expect(find.text('–'), findsWidgets);
+
+    await tester.tap(find.text('표'));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('tableView'), 'grid');
+    // 표에서 사유 있는 칸을 누르면 사유
+    await tester.tap(find.bySemanticsLabel('·').first);
+    await tester.pumpAndSettle();
+    expect(find.text('6주 사유'), findsOneWidget);
+  });
+
   // 좁은 화면(Flip 커버 361dp 정도, 아주 좁은 320dp)에서 네 탭 모두 넘침 없이 그려지는지
   for (final width in [361.0, 320.0]) {
     testWidgets('좁은 화면 ${width.toInt()}dp: 네 탭 넘침 없음', (tester) async {
-      final (container, _) = await _pumpApp(tester, size: Size(width * 2.7, 700 * 2.7));
+      // 값이 가득 찬 주(금요기도회 세 칸 + 사유)도 넘치지 않는지
+      final rec =
+          '{"6":{"attend":{"att":"late","review":"o"},"friday":{"att":"o","review":"x",'
+          '"pulpit":{"v":"dot","note":"이번 주 강단기도는 담당이 아니었어요"}},"dawn":{"main":3}}}';
+      final (container, _) = await _pumpApp(
+        tester,
+        size: Size(width * 2.7, 700 * 2.7),
+        saved: {LocalStore.recordKey('jedae2'): rec},
+      );
       for (final tab in HomeTab.values) {
         container.read(homeTabProvider.notifier).state = tab;
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: '$tab');
       }
+      container.read(homeTabProvider.notifier).state = HomeTab.table;
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('표'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '표 보기');
     });
   }
 }
