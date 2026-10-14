@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/models/course.dart';
@@ -29,4 +31,17 @@ class CourseRepository {
       _col.doc(id).update({'visible': visible, 'updatedAt': FieldValue.serverTimestamp()});
 
   Future<void> delete(String id) => _col.doc(id).delete();
+
+  /// 서버 확인을 [wait]까지만 기다려요. 인터넷이 없으면 Firestore는 폰에 먼저 저장해 두고 연결되면 올리는데,
+  /// 그동안 Future가 끝나지 않아서 화면이 멈춘 것처럼 보이기 때문이에요.
+  /// 서버가 확인했으면 true, 아직이면(나중에 올라감) false. 권한 오류 등은 그대로 던져요.
+  static Future<bool> confirmedWithin(Future<void> write, {Duration wait = const Duration(seconds: 5)}) async {
+    try {
+      await write.timeout(wait);
+      return true;
+    } on TimeoutException {
+      write.ignore();
+      return false;
+    }
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:coram_deo/app/theme.dart';
 import 'package:coram_deo/core/models/course.dart';
 import 'package:coram_deo/features/admin/ui/course_editor_screen.dart';
@@ -13,8 +15,14 @@ import 'helpers/fake_course.dart';
 class _FakeRepo implements CourseRepository {
   final saved = <Course>[];
 
+  /// true면 인터넷이 없는 것처럼 저장이 끝나지 않아요
+  bool offline = false;
+
   @override
-  Future<void> save(Course course) async => saved.add(course);
+  Future<void> save(Course course) {
+    saved.add(course);
+    return offline ? Completer<void>().future : Future.value();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
@@ -128,4 +136,40 @@ void main() {
       }
     });
   }
+
+  testWidgets('인터넷이 없으면 서버 확인을 기다리지 않고 닫으며 안내', (tester) async {
+    final repo = await _open(tester, fakeCourse());
+    repo.offline = true;
+    await tester.enterText(find.widgetWithText(TextFormField, '기수·학기'), '23기');
+    await tester.pump();
+    await tester.tap(find.text('저장'));
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(repo.saved.single.term, '23기');
+    expect(find.byType(CourseEditorScreen), findsNothing);
+    expect(find.text('폰에 저장했어요. 인터넷이 연결되면 올라가요.'), findsOneWidget);
+  });
+
+  testWidgets('주 하나 더하기(마지막 + 7일), 마지막 주 빼기', (tester) async {
+    final repo = await _open(tester, fakeCourse(), height: 30000);
+    await tester.tap(find.text('일정표'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('주 하나 더하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('13주'), findsNWidgets(2)); // 주 카드 + 주 수
+    await tester.tap(find.text('마지막 주 빼기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('마지막 주 빼기'));
+    await tester.pumpAndSettle(); // 12주는 내용이 있어서 물어봐요
+    expect(find.text('12주를 뺄까요?'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('주 하나 더하기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    final weeks = repo.saved.single.weeks;
+    expect(weeks.length, 13);
+    expect(weeks.last.date, '2026-12-05');
+  });
 }

@@ -8,7 +8,10 @@ import '../../../app/widgets.dart';
 import '../../../core/dates.dart';
 import '../../../core/models/course.dart';
 import '../../../core/models/course_defaults.dart';
+import '../../../core/models/course_limits.dart';
+import '../../course/data/course_repository.dart';
 import '../../course/logic/course_providers.dart';
+import '../logic/course_validation.dart';
 
 /// 반 편집: 기본 정보 / 일정표 / 체크 항목 / 기록요령. 저장을 눌러야 서버에 올라가요.
 class CourseEditorScreen extends ConsumerStatefulWidget {
@@ -50,18 +53,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     if (regenerate) _gen++;
   });
 
-  String? _validate() {
-    if (_draft.name.trim().isEmpty) return '반 이름을 적어 주세요.';
-    for (var i = 0; i < _draft.weeks.length; i++) {
-      if (_draft.weeks[i].classDate == null) return '${i + 1}주 날짜를 정해 주세요.';
-    }
-    if (_draft.items.isEmpty) return '체크 항목이 하나 이상 있어야 해요.';
-    for (final item in _draft.items) {
-      if (item.label.trim().isEmpty) return '이름 없는 체크 항목이 있어요.';
-      if (item.parts.isEmpty) return '${item.label}에 칸이 하나 이상 있어야 해요.';
-    }
-    return null;
-  }
+  String? _validate() => validateCourse(_draft);
 
   /// 저장 전 정리: 앞뒤 빈칸 지우고, 칸 이름이 비면 항목 이름으로
   Course _cleaned() => _draft.copyWith(
@@ -87,9 +79,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     }
     setState(() => _saving = true);
     try {
-      await ref.read(courseRepositoryProvider).save(_cleaned());
+      final confirmed = await CourseRepository.confirmedWithin(ref.read(courseRepositoryProvider).save(_cleaned()));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('저장했어요')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(confirmed ? '저장했어요' : '폰에 저장했어요. 인터넷이 연결되면 올라가요.')));
       _close();
     } on FirebaseException catch (e) {
       if (mounted) {
@@ -166,6 +159,8 @@ Widget _field(
   int maxLines = 1,
   String? hint,
   TextInputType? keyboard,
+  int? maxLength,
+  bool showCounter = false,
 }) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 12),
@@ -176,7 +171,14 @@ Widget _field(
       minLines: 1,
       maxLines: maxLines,
       keyboardType: maxLines > 1 ? TextInputType.multiline : keyboard,
-      decoration: InputDecoration(labelText: label, hintText: hint, isDense: true),
+      maxLength: maxLength,
+      // 글자 수는 긴 글(기록요령)만 보여 줘요
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        isDense: true,
+        counterText: showCounter ? null : '',
+      ),
     ),
   );
 }
@@ -196,8 +198,22 @@ class _BasicSection extends StatelessWidget {
     return ListView(
       padding: _listPadding,
       children: [
-        _field('name$gen', '반 이름', d.name, (v) => onChanged(d.copyWith(name: v)), hint: '예: 제자대학2학기'),
-        _field('term$gen', '기수·학기', d.term, (v) => onChanged(d.copyWith(term: v)), hint: '예: 22기 2학기'),
+        _field(
+          'name$gen',
+          '반 이름',
+          d.name,
+          (v) => onChanged(d.copyWith(name: v)),
+          hint: '예: 제자대학2학기',
+          maxLength: CourseLimits.name,
+        ),
+        _field(
+          'term$gen',
+          '기수·학기',
+          d.term,
+          (v) => onChanged(d.copyWith(term: v)),
+          hint: '예: 22기 2학기',
+          maxLength: CourseLimits.term,
+        ),
         const SheetLabel('수업 요일'),
         SelectPills<int>(
           options: SelectPills.simple({for (var w = 1; w <= 7; w++) w: weekdayLabel(w)}),
@@ -205,7 +221,14 @@ class _BasicSection extends StatelessWidget {
           onSelected: (v) => onChanged(d.copyWith(weekday: v)),
         ),
         const SizedBox(height: 16),
-        _field('time$gen', '수업 시간', d.time, (v) => onChanged(d.copyWith(time: v)), hint: '예: 18:00'),
+        _field(
+          'time$gen',
+          '수업 시간',
+          d.time,
+          (v) => onChanged(d.copyWith(time: v)),
+          hint: '예: 18:00',
+          maxLength: CourseLimits.time,
+        ),
         _field(
           'order$gen',
           '순서 (작을수록 위)',
@@ -288,13 +311,46 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
         context,
         title: '날짜를 다시 채울까요?',
         body:
-            '1주부터 7일씩 $_count주 날짜를 새로 넣어요. 주마다 적은 내용은 순서대로 그대로 남아요.'
+            '1주부터 7일씩 $_count주 날짜를 새로 넣어요. 주마다 따로 고친 날짜도 모두 새 날짜로 바뀌어요.\n'
+            '주마다 적은 내용(교재·훈련 내용·구절·나눔·휴강)은 순서대로 그대로 남아요.'
             '${_count < d.weeks.length ? '\n${_count + 1}주부터는 지워져요.' : ''}',
         ok: '채우기',
       );
       if (!ok) return;
     }
     widget.onChanged(d.copyWith(weeks: fillWeeks(first, _count, d.weeks)), regenerate: true);
+  }
+
+  /// 마지막 주 날짜 + 7일로 한 주 더 (마지막 주 날짜가 없으면 빈 날짜)
+  void _addWeek() {
+    final last = d.weeks.isEmpty ? null : d.weeks.last.classDate;
+    final date = last == null ? '' : ymd(addDays(last, 7));
+    setState(() => _count = d.weeks.length + 1);
+    widget.onChanged(
+      d.copyWith(
+        weeks: [
+          ...d.weeks,
+          WeekInfo(date: date),
+        ],
+      ),
+      regenerate: true,
+    );
+  }
+
+  Future<void> _removeLastWeek() async {
+    final last = d.weeks.last;
+    final hasContent = WeekInfo(date: last.date) != last;
+    if (hasContent) {
+      final ok = await showConfirmDialog(
+        context,
+        title: '${d.weeks.length}주를 뺄까요?',
+        body: '이 주에 적은 내용이 지워져요.',
+        ok: '빼기',
+      );
+      if (!ok) return;
+    }
+    setState(() => _count = d.weeks.length > 1 ? d.weeks.length - 1 : defaultWeekCount);
+    widget.onChanged(d.copyWith(weeks: [...d.weeks]..removeLast()), regenerate: true);
   }
 
   @override
@@ -329,7 +385,7 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
                       Text('$_count주', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                       IconButton(
                         tooltip: '한 주 더하기',
-                        onPressed: _count < 52 ? () => setState(() => _count++) : null,
+                        onPressed: _count < CourseLimits.weeks ? () => setState(() => _count++) : null,
                         icon: const Icon(Icons.add_circle_outline_rounded),
                       ),
                     ],
@@ -383,11 +439,29 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
                     f.get(d.weeks[i]),
                     (v) => _setWeek(i, f.set(d.weeks[i], v)),
                     maxLines: f.multiline ? 4 : 1,
+                    maxLength: f.multiline ? CourseLimits.weekText : CourseLimits.book,
                   ),
               ],
             ),
           ),
         ],
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: d.weeks.length >= CourseLimits.weeks ? null : _addWeek,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('주 하나 더하기'),
+            ),
+            OutlinedButton.icon(
+              onPressed: d.weeks.isEmpty ? null : _removeLastWeek,
+              icon: const Icon(Icons.remove_rounded),
+              label: const Text('마지막 주 빼기'),
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
         const CardHeader(icon: Icons.event_rounded, title: '추가 줄 (개강·졸업예배 등)', tone: Tone.accent),
         for (var i = 0; i < d.extras.length; i++) ...[
@@ -421,6 +495,7 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
                   d.extras[i].label,
                   (v) => _setExtra(i, d.extras[i].copyWith(label: v)),
                   hint: '예: 개강',
+                  maxLength: CourseLimits.extraLabel,
                 ),
                 _field(
                   'e$i/title/$g',
@@ -428,6 +503,7 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
                   d.extras[i].title,
                   (v) => _setExtra(i, d.extras[i].copyWith(title: v)),
                   hint: '예: OT',
+                  maxLength: CourseLimits.extraTitle,
                 ),
               ],
             ),
@@ -435,15 +511,17 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
         ],
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: () => widget.onChanged(
-            d.copyWith(
-              extras: [
-                ...d.extras,
-                const ExtraRow(label: '', date: ''),
-              ],
-            ),
-            regenerate: true,
-          ),
+          onPressed: d.extras.length >= CourseLimits.extras
+              ? null
+              : () => widget.onChanged(
+                  d.copyWith(
+                    extras: [
+                      ...d.extras,
+                      const ExtraRow(label: '', date: ''),
+                    ],
+                  ),
+                  regenerate: true,
+                ),
           icon: const Icon(Icons.add_rounded),
           label: const Text('줄 추가'),
         ),
@@ -495,18 +573,20 @@ class _ItemsSection extends StatelessWidget {
       footer: Padding(
         padding: const EdgeInsets.only(top: 4),
         child: OutlinedButton.icon(
-          onPressed: () => onChanged(
-            draft.copyWith(
-              items: [
-                ...items,
-                ItemDef(
-                  id: newItemId(items.map((e) => e.id)),
-                  label: '',
-                  parts: [PartDef(id: newPartId(const []), label: '', type: PartType.mark)],
+          onPressed: items.length >= CourseLimits.items
+              ? null
+              : () => onChanged(
+                  draft.copyWith(
+                    items: [
+                      ...items,
+                      ItemDef(
+                        id: newItemId(items.map((e) => e.id)),
+                        label: '',
+                        parts: [PartDef(id: newPartId(const []), label: '', type: PartType.mark)],
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
           icon: const Icon(Icons.add_rounded),
           label: const Text('항목 추가'),
         ),
@@ -541,6 +621,7 @@ class _ItemsSection extends StatelessWidget {
                         '항목 이름',
                         item.label,
                         (v) => _setItem(i, item.copyWith(label: v)),
+                        maxLength: CourseLimits.itemLabel,
                       ),
                     ),
                     IconButton(
@@ -570,10 +651,11 @@ class _ItemsSection extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _field(
-                                '${item.id}/p$k/$gen',
+                                '${item.id}/${item.parts[k].id}/$gen',
                                 '칸 ${k + 1} 이름',
                                 item.parts[k].label,
                                 (v) => _setPart(i, k, item.parts[k].copyWith(label: v)),
+                                maxLength: CourseLimits.partLabel,
                               ),
                               AppDropdown<PartType>(
                                 expand: true,
@@ -600,15 +682,17 @@ class _ItemsSection extends StatelessWidget {
                   child: Row(
                     children: [
                       TextButton.icon(
-                        onPressed: () => _setItem(
-                          i,
-                          item.copyWith(
-                            parts: [
-                              ...item.parts,
-                              PartDef(id: newPartId(item.parts.map((p) => p.id)), label: '', type: PartType.mark),
-                            ],
-                          ),
-                        ),
+                        onPressed: item.parts.length >= CourseLimits.partsPerItem
+                            ? null
+                            : () => _setItem(
+                                i,
+                                item.copyWith(
+                                  parts: [
+                                    ...item.parts,
+                                    PartDef(id: newPartId(item.parts.map((p) => p.id)), label: '', type: PartType.mark),
+                                  ],
+                                ),
+                              ),
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: const Text('칸 추가'),
                       ),
@@ -646,7 +730,15 @@ class _GuideSection extends StatelessWidget {
     return ListView(
       padding: _listPadding,
       children: [
-        _field('guide$gen', '기록요령', draft.guide, (v) => onChanged(draft.copyWith(guide: v)), maxLines: 30),
+        _field(
+          'guide$gen',
+          '기록요령',
+          draft.guide,
+          (v) => onChanged(draft.copyWith(guide: v)),
+          maxLines: 30,
+          maxLength: CourseLimits.guide,
+          showCounter: true,
+        ),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(

@@ -7,6 +7,7 @@ import '../../../app/layout.dart';
 import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
 import '../../../core/models/course_defaults.dart';
+import '../../course/data/course_repository.dart';
 import '../../course/logic/course_providers.dart';
 import '../logic/admin_providers.dart';
 import 'course_editor_screen.dart';
@@ -68,6 +69,14 @@ class AdminScreen extends ConsumerWidget {
       guide: defaultGuide,
     );
     await openCourseEditor(context, course, isNew: true);
+  }
+}
+
+/// 서버 확인을 잠깐만 기다리고, 인터넷이 없으면 '나중에 올라가요' 안내 (화면이 멈추지 않게)
+Future<void> _queued(BuildContext context, Future<void> write) async {
+  final confirmed = await CourseRepository.confirmedWithin(write);
+  if (!confirmed && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('인터넷이 연결되면 올라가요.')));
   }
 }
 
@@ -139,16 +148,19 @@ class _CourseAdminList extends ConsumerWidget {
         case _CourseAction.edit:
           await openCourseEditor(context, c);
         case _CourseAction.copy:
-          // 항목·기록요령·일정 내용은 그대로, 새 반으로(숨김 상태). 편집에서 1주 날짜를 바꿔 자동 채우기 하면 돼요.
+          // 항목·기록요령·일정 내용은 그대로, 날짜만 비워서 새 반으로(숨김 상태).
+          // 편집 > 일정표에서 1주 날짜를 넣고 '7일씩 채우기'를 해야 저장할 수 있어요.
           final copy = c.copyWith(
             id: repo.newId(),
             term: c.term.isEmpty ? '새 학기' : '${c.term} (새 학기)',
             order: _nextOrder(all),
             visible: false,
+            weeks: [for (final w in c.weeks) w.copyWith(date: '')],
+            extras: [for (final e in c.extras) e.copyWith(date: '')],
           );
           await openCourseEditor(context, copy, isNew: true);
         case _CourseAction.toggleVisible:
-          await repo.setVisible(c.id, !c.visible);
+          await _queued(context, repo.setVisible(c.id, !c.visible));
         case _CourseAction.delete:
           final ok = await showConfirmDialog(
             context,
@@ -156,7 +168,7 @@ class _CourseAdminList extends ConsumerWidget {
             body: '반이 목록에서 사라지고 되돌릴 수 없어요. 사람들 폰의 체크 기록은 남지만 이 반으로는 볼 수 없게 돼요.\n잠시 감추려면 숨기기를 쓰세요.',
             ok: '삭제',
           );
-          if (ok) await repo.delete(c.id);
+          if (ok && context.mounted) await _queued(context, repo.delete(c.id));
       }
     } on FirebaseException catch (e) {
       if (context.mounted) {
