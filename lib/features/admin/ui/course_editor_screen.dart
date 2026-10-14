@@ -37,6 +37,9 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   late Course _draft = widget.initial;
   bool _saving = false;
 
+  /// 저장했거나 '나가기'를 골랐으면 더 묻지 않고 닫아요.
+  bool _leaving = false;
+
   /// 목록을 통째로 바꿀 때(자동 채우기 등) 올려서, 입력 칸이 새 값으로 다시 만들어지게 합니다.
   int _gen = 0;
 
@@ -87,7 +90,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
       await ref.read(courseRepositoryProvider).save(_cleaned());
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('저장했어요')));
-      Navigator.of(context).pop();
+      _close();
     } on FirebaseException catch (e) {
       if (mounted) {
         await showInfoDialog(context, title: '저장하지 못했어요', body: '권한이나 인터넷 연결을 확인해 주세요.\n(${e.code})');
@@ -97,9 +100,17 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     }
   }
 
+  /// PopScope가 막지 않도록 먼저 다시 그린 뒤 닫습니다.
+  void _close() {
+    setState(() => _leaving = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
   Future<void> _confirmLeave() async {
     final leave = await showConfirmDialog(context, title: '저장하지 않고 나갈까요?', body: '고친 내용이 사라져요.', ok: '나가기');
-    if (leave && mounted) Navigator.of(context).pop();
+    if (leave && mounted) _close();
   }
 
   @override
@@ -111,7 +122,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
       _Section.guide => _GuideSection(draft: _draft, gen: _gen, onChanged: _update),
     };
     return PopScope(
-      canPop: !_dirty,
+      canPop: _leaving || !_dirty,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmLeave();
       },
@@ -553,21 +564,25 @@ class _ItemsSection extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // 칸 이름 아래에 종류를 둬요 (좁은 화면에서도 넘치지 않게)
                         Expanded(
-                          child: _field(
-                            '${item.id}/p$k/$gen',
-                            '칸 ${k + 1} 이름',
-                            item.parts[k].label,
-                            (v) => _setPart(i, k, item.parts[k].copyWith(label: v)),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: AppDropdown<PartType>(
-                            options: typeOptions,
-                            value: item.parts[k].type,
-                            onChanged: (t) => _setPart(i, k, item.parts[k].copyWith(type: t)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _field(
+                                '${item.id}/p$k/$gen',
+                                '칸 ${k + 1} 이름',
+                                item.parts[k].label,
+                                (v) => _setPart(i, k, item.parts[k].copyWith(label: v)),
+                              ),
+                              AppDropdown<PartType>(
+                                expand: true,
+                                options: typeOptions,
+                                value: item.parts[k].type,
+                                onChanged: (t) => _setPart(i, k, item.parts[k].copyWith(type: t)),
+                              ),
+                              const SizedBox(height: 14),
+                            ],
                           ),
                         ),
                         IconButton(
@@ -597,8 +612,15 @@ class _ItemsSection extends StatelessWidget {
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: const Text('칸 추가'),
                       ),
-                      const Spacer(),
-                      MutedText('id: ${item.id}', style: const TextStyle(fontSize: 11)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'id: ${item.id}',
+                          textAlign: TextAlign.end,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: context.palette.inkSoft),
+                        ),
+                      ),
                       const SizedBox(width: 8),
                     ],
                   ),

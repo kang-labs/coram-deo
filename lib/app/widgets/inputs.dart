@@ -92,11 +92,20 @@ class SelectPills<T> extends StatelessWidget {
 
 /// 알약 모양 드롭다운. [options]는 값 → 표시 이름(순서대로).
 class AppDropdown<T> extends StatelessWidget {
-  const AppDropdown({super.key, required this.options, required this.value, required this.onChanged});
+  const AppDropdown({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+    this.expand = false,
+  });
 
   final Map<T, String> options;
   final T value;
   final ValueChanged<T>? onChanged;
+
+  /// 주어진 폭을 다 쓰고 긴 글자는 …로 줄여요 (좁은 화면)
+  final bool expand;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +118,7 @@ class AppDropdown<T> extends StatelessWidget {
         child: DropdownButton<T>(
           value: value,
           isDense: true,
+          isExpanded: expand,
           borderRadius: BorderRadius.circular(18),
           dropdownColor: p.surface,
           icon: Icon(Icons.expand_more_rounded, size: 20, color: p.inkSoft),
@@ -117,10 +127,16 @@ class AppDropdown<T> extends StatelessWidget {
             for (final label in options.values)
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text(label, style: style),
+                child: Text(label, style: style, overflow: TextOverflow.ellipsis, maxLines: 1),
               ),
           ],
-          items: [for (final e in options.entries) DropdownMenuItem<T>(value: e.key, child: Text(e.value))],
+          items: [
+            for (final e in options.entries)
+              DropdownMenuItem<T>(
+                value: e.key,
+                child: Text(e.value, overflow: TextOverflow.ellipsis, maxLines: 1),
+              ),
+          ],
           onChanged: onChanged == null ? null : (v) => v == null ? null : onChanged!(v),
         ),
       ),

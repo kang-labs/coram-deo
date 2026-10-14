@@ -12,10 +12,10 @@ enum PartType {
   attend('○ / 지 / X', [MarkValue.o, MarkValue.late, MarkValue.x]),
 
   /// 7일 체크 → 한 날 수
-  days('요일 체크 (한 날 수)', []),
+  days('요일 (날 수)', []),
 
   /// 7일 체크 → 새벽기도 점수
-  dawn('요일 체크 (새벽 점수)', []);
+  dawn('요일 (새벽 점수)', []);
 
   const PartType(this.label, this.choices);
 
