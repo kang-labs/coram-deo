@@ -9,7 +9,7 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email in ['sdmem7@gmail.com'];
+        && request.auth.token.email in ['bible4217@gmail.com'];
     }
 
     // 가볍게 모양만 확인 (자세한 검사는 앱 편집 화면에서).

@@ -17,7 +17,7 @@ Widget _app(List<Override> overrides) => ProviderScope(
 /// 로그인한 관리자 흉내 (이메일만)
 class _FakeUser implements User {
   @override
-  String? get email => 'sdmem7@gmail.com';
+  String? get email => 'bible4217@gmail.com';
 
   @override
   bool get emailVerified => true;
