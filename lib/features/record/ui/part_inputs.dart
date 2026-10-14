@@ -8,26 +8,23 @@ import '../../week/logic/week_math.dart';
 import '../../week/logic/week_providers.dart';
 import '../logic/part_display.dart';
 import '../logic/record_providers.dart';
-
-/// 고른 값의 색 (○ 초록, 지 주황, X 빨강 — 실제 색은 테마)
-Tone markTone(MarkValue v) => switch (v) {
-  MarkValue.o => Tone.success,
-  MarkValue.late => Tone.warm,
-  MarkValue.x => Tone.danger,
-};
+import 'mark_glyph.dart';
 
 /// 한 칸이 어느 주·항목·칸인지
-typedef PartRef = ({int week, String itemId, int part});
+typedef PartRef = ({int week, String itemId, String partId});
 
 /// 체크 항목 카드 하나. 칸 종류마다 공통 입력([PartInput])으로 그려서 항목별 코드가 없어요.
 class ItemCard extends StatelessWidget {
-  const ItemCard({super.key, required this.item, required this.week, required this.classDate});
+  const ItemCard({super.key, required this.item, required this.week, required this.classDate, this.off = false});
 
   final ItemDef item;
 
   /// 주차 (1부터)
   final int week;
   final DateTime classDate;
+
+  /// 휴강 주 (체크는 하지만 새벽기도 점수는 안 매겨요)
+  final bool off;
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +40,9 @@ class ItemCard extends StatelessWidget {
               title: single ? item.label : null,
               groupTitle: !single && i == 0 ? item.label : null,
               part: item.parts[i],
-              ref: (week: week, itemId: item.id, part: i),
+              ref: (week: week, itemId: item.id, partId: item.parts[i].id),
               classDate: classDate,
+              off: off,
             ),
           ],
         ],
@@ -60,6 +58,7 @@ class PartInput extends StatelessWidget {
     required this.part,
     required this.ref,
     required this.classDate,
+    this.off = false,
     this.title,
     this.groupTitle,
   });
@@ -67,6 +66,7 @@ class PartInput extends StatelessWidget {
   final PartDef part;
   final PartRef ref;
   final DateTime classDate;
+  final bool off;
 
   /// 칸이 하나뿐인 항목: 항목 이름을 제목으로
   final String? title;
@@ -85,6 +85,7 @@ class PartInput extends StatelessWidget {
             part: part,
             pref: ref,
             classDate: classDate,
+            off: off,
             label: Text(label, style: labelStyle),
           )
         : _ChoiceInput(
@@ -105,7 +106,7 @@ class PartInput extends StatelessWidget {
   }
 }
 
-/// ○ / X, ○ / 지 / X 고르기 (다시 누르면 비움). 그 주가 시작 전이면 고를 수 없어요.
+/// ○ / X / ·, ○ / X / 지각 고르기 (다시 누르면 비움). 그 주가 시작 전이면 고를 수 없어요.
 class _ChoiceInput extends ConsumerWidget {
   const _ChoiceInput({required this.part, required this.pref, required this.classDate, required this.label});
 
@@ -116,7 +117,7 @@ class _ChoiceInput extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final value = ref.watch(courseRecordProvider.select((r) => r.value(pref.week, pref.itemId, pref.part)));
+    final value = ref.watch(courseRecordProvider.select((r) => r.value(pref.week, pref.itemId, pref.partId)));
     final started = ref.watch(todayProvider.select((t) => weekStarted(classDate, t)));
     return Row(
       children: [
@@ -124,11 +125,17 @@ class _ChoiceInput extends ConsumerWidget {
         SelectPills<String>(
           minWidth: 52,
           clearable: true,
-          options: [for (final v in part.type.choices) (value: v.code, label: v.symbol, tone: markTone(v))],
+          options: [for (final v in part.type.choices) (value: v.code, label: v.buttonLabel, tone: markTone(v))],
+          glyph: (code, color, on) => MarkGlyph(
+            value: MarkValue.fromCode(code)!,
+            label: MarkValue.fromCode(code)!.buttonLabel,
+            // 안 고른 표시는 흐리게
+            color: on ? color : context.palette.hint,
+          ),
           selected: value is String ? value : null,
           onSelected: !started
               ? null
-              : (v) => ref.read(courseRecordProvider.notifier).setValue(pref.week, pref.itemId, pref.part, v),
+              : (v) => ref.read(courseRecordProvider.notifier).setValue(pref.week, pref.itemId, pref.partId, v),
         ),
       ],
     );
@@ -137,26 +144,34 @@ class _ChoiceInput extends ConsumerWidget {
 
 /// 요일 7칸 (요일 + 날짜). 오늘은 테두리, 아직 오지 않은 날은 누를 수 없어요. 옆에 합계.
 class _DailyInput extends ConsumerWidget {
-  const _DailyInput({required this.part, required this.pref, required this.classDate, required this.label});
+  const _DailyInput({
+    required this.part,
+    required this.pref,
+    required this.classDate,
+    required this.off,
+    required this.label,
+  });
 
   final PartDef part;
   final PartRef pref;
   final DateTime classDate;
+  final bool off;
   final Widget label;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mask = ref.watch(courseRecordProvider.select((r) => r.mask(pref.week, pref.itemId, pref.part)));
+    final mask = ref.watch(courseRecordProvider.select((r) => r.mask(pref.week, pref.itemId, pref.partId)));
     final today = ref.watch(todayProvider);
     final count = countDays(mask);
-    final summaryTone = part.type == PartType.dawn && dawnScore(count) < 0 ? Tone.danger : Tone.primary;
+    final scored = isScoredWeek(started: weekStarted(classDate, today), off: off);
+    final summaryTone = part.type == PartType.dawn && scored && dawnScore(count) < 0 ? Tone.danger : Tone.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
             Expanded(child: label),
-            TinyBadge(dailySummary(part.type, mask), tone: summaryTone),
+            TinyBadge(dailySummary(part.type, mask, scored: scored), tone: summaryTone),
           ],
         ),
         const SizedBox(height: 10),
@@ -172,7 +187,7 @@ class _DailyInput extends ConsumerWidget {
                   future: isFutureDay(dayOfWeek(classDate, i), today),
                   onTap: () => ref
                       .read(courseRecordProvider.notifier)
-                      .setValue(pref.week, pref.itemId, pref.part, toggleDay(mask, i)),
+                      .setValue(pref.week, pref.itemId, pref.partId, toggleDay(mask, i)),
                 ),
               ),
             ],

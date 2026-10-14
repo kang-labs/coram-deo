@@ -59,7 +59,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel('10/11(일)').first);
     await tester.pump();
     expect(find.text('1/7'), findsOneWidget);
-    expect(prefs.getString('rec.jedae2'), '{"6":{"bible":[1]}}');
+    expect(prefs.getString('rec.jedae2'), '{"6":{"bible":{"main":1}}}');
 
     // 내일(10/15)은 아직 체크할 수 없어요
     await tester.tap(find.bySemanticsLabel('10/15(목)').first, warnIfMissed: false);
@@ -67,12 +67,16 @@ void main() {
     expect(find.text('1/7'), findsOneWidget);
 
     // 출석 ○ 고르고 다시 누르면 비움
-    await tester.tap(find.text('○').first);
+    await tester.tap(find.bySemanticsLabel('○').first);
     await tester.pump();
-    expect(prefs.getString('rec.jedae2'), '{"6":{"bible":[1],"attend":["o"]}}');
-    await tester.tap(find.text('○').first);
+    expect(prefs.getString('rec.jedae2'), '{"6":{"bible":{"main":1},"attend":{"att":"o"}}}');
+    await tester.tap(find.bySemanticsLabel('○').first);
     await tester.pump();
-    expect(prefs.getString('rec.jedae2'), '{"6":{"bible":[1]}}');
+    expect(prefs.getString('rec.jedae2'), '{"6":{"bible":{"main":1}}}');
+
+    // 출석 버튼 순서 ○ / X / 지각, 교재예습은 ○ / X / ·, 구절암송은 ○ / X
+    expect(find.bySemanticsLabel('지각'), findsOneWidget);
+    expect(find.bySemanticsLabel('·'), findsNWidgets(14)); // mark 칸 14개 (후기·금요기도회 등)
   });
 
   testWidgets('주차 넘기기, 이번 주로 돌아오기, 체크표 줄 누르면 그 주로', (tester) async {

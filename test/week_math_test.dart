@@ -65,16 +65,34 @@ void main() {
     expect(isDayOn(1 << 2, 2), isTrue);
   });
 
-  test('표 글자: days 한 날 수, dawn 점수, 고르는 칸 기호', () {
-    expect(partCellText(PartType.days, 127, started: true), '7');
-    expect(partCellText(PartType.days, 0, started: true), '');
-    expect(partCellText(PartType.dawn, 0x3, started: true), '−1');
-    expect(partCellText(PartType.dawn, null, started: true), '−3');
-    expect(partCellText(PartType.dawn, null, started: false), '');
-    expect(partCellText(PartType.attend, 'late', started: true), '지');
-    expect(partCellText(PartType.mark, 'o', started: true), '○');
+  test('표 글자: days 한 날 수, dawn 점수(점수 매기는 주만)', () {
+    expect(dailyCellText(PartType.days, 127, scored: true), '7');
+    expect(dailyCellText(PartType.days, 0, scored: true), '');
+    expect(dailyCellText(PartType.days, 3, scored: false), '2');
+    expect(dailyCellText(PartType.dawn, 0x3, scored: true), '−1');
+    expect(dailyCellText(PartType.dawn, null, scored: true), '−3');
+    expect(dailyCellText(PartType.dawn, null, scored: false), '');
+    expect(dailyCellText(PartType.dawn, 0x7, scored: false), '');
     expect(dailySummary(PartType.dawn, 0x3), '2회 → −1');
+    expect(dailySummary(PartType.dawn, 0x3, scored: false), '2회');
     expect(dailySummary(PartType.days, 0x1F), '5/7');
+    expect(isScoredWeek(started: true, off: true), isFalse);
+    expect(isScoredWeek(started: false, off: false), isFalse);
+    expect(isScoredWeek(started: true, off: false), isTrue);
+  });
+
+  test('날짜 없는 주는 건너뛰고, 끝나면 날짜 있는 마지막 주', () {
+    final dates = <DateTime?>[d(9, 12), d(9, 19), null];
+    expect(currentWeekIndex(dates, d(12, 1)), 1);
+    expect(currentWeekIndex(dates, d(9, 15)), 1);
+    expect(currentWeekIndex(const [null, null], d(9, 15)), 0);
+  });
+
+  test('오늘이 실제로 들어 있는 주 (학기 밖이면 없음)', () {
+    expect(weekIndexContaining(classDates, d(10, 14)), 5);
+    expect(weekIndexContaining(classDates, d(9, 6)), 0); // 1주 = 9/6~9/12
+    expect(weekIndexContaining(classDates, d(8, 1)), isNull);
+    expect(weekIndexContaining(classDates, d(12, 25)), isNull);
   });
 
   test('날짜 글자 읽기·쓰기', () {

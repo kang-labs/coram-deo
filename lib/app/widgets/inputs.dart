@@ -21,6 +21,7 @@ class SheetLabel extends StatelessWidget {
 typedef PillOption<T> = ({T value, String label, Tone tone});
 
 /// 여러 개 중 하나를 고르는 알약 줄. 애니메이션 없이 바로 바뀝니다.
+/// 고른 알약은 옅은 색 바탕 + 진한 글자, 안 고른 알약은 테두리만 있는 흐린 글자예요.
 /// [clearable]이면 고른 알약을 다시 누를 때 null(비움)로 돌아갑니다.
 class SelectPills<T> extends StatelessWidget {
   const SelectPills({
@@ -30,6 +31,7 @@ class SelectPills<T> extends StatelessWidget {
     required this.onSelected,
     this.clearable = false,
     this.minWidth = 0,
+    this.glyph,
   });
 
   /// 순서대로의 선택지
@@ -43,6 +45,9 @@ class SelectPills<T> extends StatelessWidget {
   /// 알약 최소 폭 (○ X 같은 한 글자 알약을 누르기 쉽게)
   final double minWidth;
 
+  /// 글자 대신 그릴 표시 (값, 색, 골랐는지). 없으면 [PillOption.label] 글자.
+  final Widget Function(T value, Color color, bool selected)? glyph;
+
   /// 글자 하나짜리 선택지를 만드는 도우미 (색은 기본 주 색)
   static List<PillOption<T>> simple<T>(Map<T, String> map) => [
     for (final e in map.entries) (value: e.key, label: e.value, tone: Tone.primary),
@@ -52,40 +57,39 @@ class SelectPills<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final enabled = onSelected != null;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final o in options)
-          Builder(
-            builder: (context) {
-              final on = o.value == selected;
-              final (fg, _) = o.tone.colors(p);
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: !enabled ? null : () => onSelected!(clearable && on ? null : o.value),
-                child: Container(
-                  constraints: BoxConstraints(minWidth: minWidth, minHeight: 40),
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: on ? fg : p.surface,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(color: on ? fg : p.line, width: 1.5),
-                  ),
-                  child: Text(
-                    o.label,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: on ? p.onPrimary : (enabled ? p.inkSoft : p.hint),
-                    ),
-                  ),
-                ),
-              );
-            },
+    return Wrap(spacing: 8, runSpacing: 8, children: [for (final o in options) _pill(p, o, enabled)]);
+  }
+
+  Widget _pill(AppPalette p, PillOption<T> o, bool enabled) {
+    final on = o.value == selected;
+    final (fg, soft) = o.tone.colors(p);
+    final color = on ? fg : (enabled ? p.inkSoft : p.hint);
+    return Semantics(
+      button: true,
+      selected: on,
+      enabled: enabled,
+      label: o.label,
+      excludeSemantics: glyph != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: !enabled ? null : () => onSelected!(clearable && on ? null : o.value),
+        child: Container(
+          constraints: BoxConstraints(minWidth: minWidth, minHeight: 40),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: on ? soft : (enabled ? p.surface : p.surfaceMuted),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(color: on ? fg.withValues(alpha: 0.55) : p.line, width: 1.5),
           ),
-      ],
+          child: glyph != null
+              ? glyph!(o.value, color, on)
+              : Text(
+                  o.label,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
+                ),
+        ),
+      ),
     );
   }
 }

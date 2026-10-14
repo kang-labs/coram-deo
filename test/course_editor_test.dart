@@ -113,7 +113,9 @@ void main() {
     expect(items.last.id, startsWith('item_'));
     expect(items.last.label, '전도');
     // 칸 이름이 비면 항목 이름으로
-    expect(items.last.parts.single, const PartDef(label: '전도', type: PartType.mark));
+    final part = items.last.parts.single;
+    expect((part.label, part.type), ('전도', PartType.mark));
+    expect(part.id, startsWith('p_'));
   });
 
   for (final dp in [360.0, 320.0]) {

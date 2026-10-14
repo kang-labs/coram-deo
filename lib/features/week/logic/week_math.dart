@@ -21,16 +21,29 @@ int? dayIndexInWeek(DateTime classDate, DateTime day) {
   return i >= 0 && i < daysPerWeek ? i : null;
 }
 
-/// 오늘이 속한 주차의 순번(0부터). 학기 전이면 0(1주), 끝났으면 마지막 주.
-/// 주 사이에 빈 날이 있으면 그 뒤에 오는 주를 고릅니다. [classDates]가 비면 null.
+/// 오늘 기준으로 보여 줄 주차 순번(0부터). 학기 전이면 0(1주), 끝났으면 날짜가 있는 마지막 주.
+/// 주 사이에 빈 날이 있으면 그 뒤에 오는 주를 고릅니다. 날짜 없는 주는 건너뛰어요.
+/// [classDates]가 비면 null, 날짜가 하나도 없으면 0.
 int? currentWeekIndex(List<DateTime?> classDates, DateTime today) {
   if (classDates.isEmpty) return null;
   final t = dateOnly(today);
+  int? lastDated;
   for (var i = 0; i < classDates.length; i++) {
     final d = classDates[i];
-    if (d != null && !t.isAfter(dateOnly(d))) return i;
+    if (d == null) continue;
+    if (!t.isAfter(dateOnly(d))) return i;
+    lastDated = i;
   }
-  return classDates.length - 1;
+  return lastDated ?? 0;
+}
+
+/// 오늘이 실제로 그 주 범위(수업날−6 ~ 수업날) 안에 있는 주차 순번. 없으면 null ('이번 주' 표시용).
+int? weekIndexContaining(List<DateTime?> classDates, DateTime today) {
+  for (var i = 0; i < classDates.length; i++) {
+    final d = classDates[i];
+    if (d != null && dayIndexInWeek(d, today) != null) return i;
+  }
+  return null;
 }
 
 /// 아직 오지 않은 날인지 (체크할 수 없음)

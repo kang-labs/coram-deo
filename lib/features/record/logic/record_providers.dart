@@ -49,11 +49,10 @@ class CourseRecordController extends Notifier<CourseRecord> {
   }
 
   /// [week]주차(1부터) 칸 값 바꾸기. 바로 저장해요.
-  void setValue(int week, String itemId, int part, Object? value) {
+  void setValue(int week, String itemId, String partId, Object? value) {
     final id = _courseId;
-    if (id == null) return;
-    final next = state.withValue(week, itemId, part, value);
-    if (next == state) return;
+    if (id == null || state.value(week, itemId, partId) == value) return;
+    final next = state.withValue(week, itemId, partId, value);
     state = next;
     ref.read(localStoreProvider).saveRecord(id, next);
   }

@@ -2,14 +2,18 @@ import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:flutter/foundation.dart';
 
 import '../dates.dart';
+import 'course_defaults.dart' show legacyPartId;
 
 /// 체크 칸 하나의 입력 종류. 저장 키는 [name]이라 이름을 바꾸지 마세요.
 enum PartType {
-  /// ○ / X
-  mark('○ / X', [MarkValue.o, MarkValue.x]),
+  /// ○ / X / · (교재예습, 후기, 참석 등)
+  mark('○ / X / ·', [MarkValue.o, MarkValue.x, MarkValue.dot]),
 
-  /// ○ / 지 / X
-  attend('○ / 지 / X', [MarkValue.o, MarkValue.late, MarkValue.x]),
+  /// ○ / X (구절암송)
+  ox('○ / X', [MarkValue.o, MarkValue.x]),
+
+  /// ○ / X / 지각 (출석)
+  attend('○ / X / 지각', [MarkValue.o, MarkValue.x, MarkValue.late]),
 
   /// 7일 체크 → 한 날 수
   days('요일 (날 수)', []),
@@ -22,7 +26,7 @@ enum PartType {
   /// 관리자 편집 화면에 보이는 이름
   final String label;
 
-  /// 고르는 칸의 선택지. 비어 있으면 요일 칸.
+  /// 고르는 칸의 선택지(버튼 순서). 비어 있으면 요일 칸.
   final List<MarkValue> choices;
 
   /// 요일 7칸으로 체크하는 종류
@@ -36,18 +40,22 @@ enum PartType {
   }
 }
 
-/// 고르는 칸의 값. [code]가 폰에 저장되는 값입니다.
+/// 고르는 칸의 값. [code]가 폰에 저장되는 값입니다(바꾸지 마세요).
 enum MarkValue {
-  o('o', '○'),
-  late('late', '지'),
-  x('x', 'X');
+  o('o', '○', '○'),
+  x('x', 'X', 'X'),
+  dot('dot', '·', '·'),
+  late('late', '지', '지각');
 
-  const MarkValue(this.code, this.symbol);
+  const MarkValue(this.code, this.symbol, this.buttonLabel);
 
   final String code;
 
-  /// 화면·표에 보이는 글자
+  /// 표에 보이는 글자 (읽어 주기·복사용. 화면은 MarkGlyph로 그려요)
   final String symbol;
+
+  /// 버튼 이름 (지각처럼 표보다 길게)
+  final String buttonLabel;
 
   static MarkValue? fromCode(Object? code) {
     for (final v in values) {
@@ -57,26 +65,36 @@ enum MarkValue {
   }
 }
 
-/// 항목 안의 칸 하나 (예: 출석/후기의 '출석')
+/// 항목 안의 칸 하나 (예: 출석/후기의 '출석').
+/// [id]는 항목 안에서 겹치지 않는 키로, 폰 기록과 이어지니 바꾸지 않습니다.
 @immutable
 class PartDef {
-  const PartDef({required this.label, required this.type});
+  const PartDef({required this.id, required this.label, required this.type});
 
+  final String id;
   final String label;
   final PartType type;
 
-  factory PartDef.fromMap(Map<String, dynamic> m) =>
-      PartDef(label: (m['label'] as String?) ?? '', type: PartType.fromName(m['type'] as String?));
+  /// [itemId]·[index]는 id가 없던 예전 문서를 읽을 때 기본 칸 id를 정하는 데 씁니다.
+  factory PartDef.fromMap(Map<String, dynamic> m, {required String itemId, required int index}) {
+    final id = m['id'];
+    return PartDef(
+      id: id is String && id.isNotEmpty ? id : legacyPartId(itemId, index),
+      label: (m['label'] as String?) ?? '',
+      type: PartType.fromName(m['type'] as String?),
+    );
+  }
 
-  Map<String, dynamic> toMap() => {'label': label, 'type': type.name};
+  Map<String, dynamic> toMap() => {'id': id, 'label': label, 'type': type.name};
 
-  PartDef copyWith({String? label, PartType? type}) => PartDef(label: label ?? this.label, type: type ?? this.type);
+  PartDef copyWith({String? label, PartType? type}) =>
+      PartDef(id: id, label: label ?? this.label, type: type ?? this.type);
 
   @override
-  bool operator ==(Object other) => other is PartDef && other.label == label && other.type == type;
+  bool operator ==(Object other) => other is PartDef && other.id == id && other.label == label && other.type == type;
 
   @override
-  int get hashCode => Object.hash(label, type);
+  int get hashCode => Object.hash(id, label, type);
 }
 
 /// 체크 항목 하나. [id]는 폰 기록과 이어지는 키라 바꾸지 않습니다.
@@ -88,11 +106,18 @@ class ItemDef {
   final String label;
   final List<PartDef> parts;
 
-  factory ItemDef.fromMap(Map<String, dynamic> m) => ItemDef(
-    id: (m['id'] as String?) ?? '',
-    label: (m['label'] as String?) ?? '',
-    parts: [for (final p in (m['parts'] as List?) ?? const []) PartDef.fromMap(Map<String, dynamic>.from(p as Map))],
-  );
+  factory ItemDef.fromMap(Map<String, dynamic> m) {
+    final id = (m['id'] as String?) ?? '';
+    final raw = (m['parts'] as List?) ?? const [];
+    return ItemDef(
+      id: id,
+      label: (m['label'] as String?) ?? '',
+      parts: [
+        for (var i = 0; i < raw.length; i++)
+          PartDef.fromMap(Map<String, dynamic>.from(raw[i] as Map), itemId: id, index: i),
+      ],
+    );
+  }
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -255,8 +280,10 @@ class Course {
   final String guide;
   final DateTime? updatedAt;
 
-  /// 주차별 수업 날짜 (형식이 틀린 주는 null)
-  List<DateTime?> get classDates => [for (final w in weeks) w.classDate];
+  /// 주차별 수업 날짜 (형식이 틀린 주는 null). 반 하나에 한 번만 계산해 둬요.
+  List<DateTime?> get classDates => _classDatesCache[this] ??= List.unmodifiable([for (final w in weeks) w.classDate]);
+
+  static final _classDatesCache = Expando<List<DateTime?>>('classDates');
 
   /// 수업 요일·시간 글 (예: 토 18:00)
   String get scheduleLabel => [weekdayLabel(weekday), if (time.isNotEmpty) time].join(' ');

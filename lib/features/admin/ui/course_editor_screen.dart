@@ -502,7 +502,7 @@ class _ItemsSection extends StatelessWidget {
                 ItemDef(
                   id: newItemId(items.map((e) => e.id)),
                   label: '',
-                  parts: const [PartDef(label: '', type: PartType.mark)],
+                  parts: [PartDef(id: newPartId(const []), label: '', type: PartType.mark)],
                 ),
               ],
             ),
@@ -605,7 +605,7 @@ class _ItemsSection extends StatelessWidget {
                           item.copyWith(
                             parts: [
                               ...item.parts,
-                              const PartDef(label: '', type: PartType.mark),
+                              PartDef(id: newPartId(item.parts.map((p) => p.id)), label: '', type: PartType.mark),
                             ],
                           ),
                         ),

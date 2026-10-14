@@ -26,12 +26,13 @@ PROJECT = "coram-deo-biblekang"
 BASE = f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default)/documents"
 
 
-def part(label: str, type_: str = "mark") -> dict:
-    return {"label": label, "type": type_}
+def part(label: str, type_: str = "mark", pid: str = "main") -> dict:
+    return {"id": pid, "label": label, "type": type_}
 
 
+# 칸 id는 폰 기록과 이어지는 키 (칸 하나면 'main'). 앱 lib/core/models/course_defaults.dart 와 같게.
 DEFAULT_ITEMS = [
-    {"id": "attend", "label": "출석/후기", "parts": [part("출석", "attend"), part("후기")]},
+    {"id": "attend", "label": "출석/후기", "parts": [part("출석", "attend", "att"), part("후기", pid="review")]},
     {"id": "prep", "label": "교재예습", "parts": [part("교재예습")]},
     {"id": "book", "label": "필독서 읽기", "parts": [part("필독서")]},
     {"id": "bible", "label": "성경읽기", "parts": [part("성경", "days")]},
@@ -39,11 +40,12 @@ DEFAULT_ITEMS = [
     {"id": "prayer", "label": "기도", "parts": [part("기도", "days")]},
     {"id": "dawn", "label": "새벽기도", "parts": [part("새벽", "dawn")]},
     {"id": "task", "label": "강사 특별과제", "parts": [part("과제")]},
-    {"id": "verse", "label": "구절암송", "parts": [part("암송")]},
+    {"id": "verse", "label": "구절암송", "parts": [part("암송", "ox")]},
     {"id": "monday", "label": "월요목회 도고기도", "parts": [part("도고")]},
-    {"id": "friday", "label": "금요기도회", "parts": [part("출석"), part("후기"), part("강단기도")]},
-    {"id": "festival", "label": "축제예배/후기", "parts": [part("참석"), part("후기")]},
-    {"id": "passion", "label": "열정예배/후기", "parts": [part("참석"), part("후기")]},
+    {"id": "friday", "label": "금요기도회",
+     "parts": [part("출석", pid="att"), part("후기", pid="review"), part("강단기도", pid="pulpit")]},
+    {"id": "festival", "label": "축제예배/후기", "parts": [part("참석", pid="att"), part("후기", pid="review")]},
+    {"id": "passion", "label": "열정예배/후기", "parts": [part("참석", pid="att"), part("후기", pid="review")]},
     {"id": "cell", "label": "셀가족모임", "parts": [part("셀")]},
     {"id": "happy", "label": "행복모임 인도", "parts": [part("행복")]},
 ]
