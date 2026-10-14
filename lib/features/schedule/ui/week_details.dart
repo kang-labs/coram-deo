@@ -48,7 +48,9 @@ class WeekDetails extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (var i = 0; i < verses.length; i++) ...[
-                if (i > 0) SizedBox(height: dense ? 8 : 12),
+                // 장절만 있는 구절끼리는 훈련 내용 여러 줄처럼 붙여서, 본문이 있는 구절 사이만 띄워요
+                if (i > 0 && (verses[i - 1].text.trim().isNotEmpty || verses[i].text.trim().isNotEmpty))
+                  SizedBox(height: dense ? 8 : 12),
                 _VerseView(verse: verses[i], dense: dense),
               ],
             ],

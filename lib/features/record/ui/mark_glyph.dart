@@ -61,7 +61,8 @@ class _MarkPainter extends CustomPainter {
         canvas.drawLine(c.translate(-d, -d), c.translate(d, d), stroke);
         canvas.drawLine(c.translate(d, -d), c.translate(-d, d), stroke);
       case MarkValue.dot:
-        canvas.drawCircle(c, s * 0.15, Paint()..color = color);
+        // ○·X와 같이 눈에 띄도록 넉넉한 점
+        canvas.drawCircle(c, s * 0.18, Paint()..color = color);
       case MarkValue.late:
         break; // 글자로 그려요
     }

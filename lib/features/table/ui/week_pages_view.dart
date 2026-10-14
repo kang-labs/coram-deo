@@ -152,7 +152,7 @@ class _WeekPage extends StatelessWidget {
   }
 }
 
-/// 항목 한 줄. 칸이 여러 개면 '출석 ○ · 후기 X'처럼 칸 이름을 작게 붙여요.
+/// 항목 한 줄. 칸이 여러 개면 '출석 ○', '후기 X'를 오른쪽 정렬 작은 줄로 쌓아요.
 class _ItemRow extends StatelessWidget {
   const _ItemRow({
     required this.item,
@@ -170,9 +170,9 @@ class _ItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
     final single = item.parts.length == 1;
-    Widget value(PartDef part) => BigValue(part: part, week: week, itemId: item.id, classDate: classDate, off: off);
+    Widget value(PartDef part, String? subLabel) =>
+        BigValue(part: part, week: week, itemId: item.id, classDate: classDate, off: off, subLabel: subLabel);
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 60),
       child: Padding(
@@ -186,28 +186,16 @@ class _ItemRow extends StatelessWidget {
             ConstrainedBox(
               constraints: BoxConstraints(maxWidth: valuesMaxWidth),
               child: single
-                  ? value(item.parts.single)
-                  : Wrap(
-                      alignment: WrapAlignment.end,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 14,
-                      runSpacing: 6,
+                  ? value(item.parts.single, null)
+                  // 여러 칸: 칸 이름 + 값 작은 줄을 오른쪽 정렬로 쌓아요
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        for (final part in item.parts)
-                          ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: valuesMaxWidth),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  part.label,
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: p.inkSoft),
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(child: value(part)),
-                              ],
-                            ),
-                          ),
+                        for (var k = 0; k < item.parts.length; k++) ...[
+                          if (k > 0) const SizedBox(height: 4),
+                          value(item.parts[k], item.parts[k].label),
+                        ],
                       ],
                     ),
             ),
