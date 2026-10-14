@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:coram_deo/core/models/course.dart';
 import 'package:coram_deo/core/models/course_defaults.dart';
+import 'package:coram_deo/features/course/data/course_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/fake_course.dart';
@@ -107,6 +108,80 @@ void main() {
             if (!q.dotReason) i.id,
       ],
       ['task'],
+    );
+  });
+
+  test('서버 형식이 이상하거나 모르는 값이어도 멈추지 않고 기본값으로 읽음', () {
+    final c = Course.fromMap('x', {
+      'name': 3,
+      'term': ['a'],
+      'weekday': '토',
+      'order': 2.7,
+      'visible': 'yes',
+      'guide': null,
+      'newField': {'future': true},
+      'weeks': [
+        'not a map',
+        42,
+        {
+          'date': 20261012,
+          'title': ['x'],
+          'verses': [
+            1,
+            'a',
+            {'ref': 5, 'text': '본문'},
+            {'ref': '요 1:1'},
+          ],
+          'off': 1,
+        },
+        {
+          'date': '2026-10-17',
+          'verses': {'weird': 'shape'},
+          'extra': 1,
+        },
+      ],
+      'extras': 'nope',
+      'items': [
+        {'id': 'a', 'label': '가', 'parts': 'nope'},
+        {
+          'id': 'b',
+          'label': '나',
+          'parts': [
+            null,
+            {'type': 'futureType', 'label': 1, 'dotReason': 'no'},
+          ],
+        },
+        7,
+      ],
+      'updatedAt': 'yesterday',
+    });
+    expect(c.name, '');
+    expect(c.term, '');
+    expect(c.weekday, DateTime.saturday);
+    expect(c.order, 2);
+    expect(c.visible, isTrue);
+    expect(c.weeks.length, 2);
+    expect(c.weeks[0].date, '');
+    expect(c.weeks[0].off, isFalse);
+    expect(c.weeks[0].verses, const [Verse(ref: '', text: '본문'), Verse(ref: '요 1:1')]);
+    expect(c.weeks[1].verses, isEmpty);
+    expect(c.extras, isEmpty);
+    expect(c.items.map((i) => i.parts.length), [0, 1]);
+    final part = c.items[1].parts.single;
+    expect((part.type, part.label, part.dotReason, part.id), (PartType.mark, '', true, 'p0'));
+    expect(c.updatedAt, isNull);
+  });
+
+  test('저장소: 읽을 수 없는 문서는 null(목록에서 건너뜀)', () {
+    expect(CourseRepository.parseCourse('ok', {'name': '반'})?.name, '반');
+    // 지금 형식으로는 어떤 값도 예외가 안 나지만, 혹시 나도 null
+    expect(
+      CourseRepository.parseCourse('x', {
+        'weeks': [
+          {'date': Object()},
+        ],
+      }),
+      isNotNull,
     );
   });
 

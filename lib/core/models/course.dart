@@ -4,6 +4,25 @@ import 'package:flutter/foundation.dart';
 import '../dates.dart';
 import 'course_defaults.dart' show legacyPartId;
 
+// ── 서버 값 읽기 도우미 ──
+// 서버 데이터 형식이 바뀌어도 이미 설치된 앱이 깨지지 않게, 읽기는 관대하게:
+// 타입이 다르거나 없으면 기본값, 모양이 다른 목록 항목은 건너뛰어요. (캐스트로 예외를 내지 않아요)
+
+String _str(Object? v, [String fallback = '']) => v is String ? v : fallback;
+
+String? _strOrNull(Object? v) => v is String ? v : null;
+
+bool _bool(Object? v, bool fallback) => v is bool ? v : fallback;
+
+int _int(Object? v, int fallback) => v is num && v.isFinite ? v.toInt() : fallback;
+
+/// 맵들의 목록만 골라요 (목록이 아니면 빈 목록, 맵이 아닌 항목은 건너뜀)
+List<Map<String, dynamic>> _maps(Object? v) => [
+  if (v is List)
+    for (final e in v)
+      if (e is Map) {for (final en in e.entries) '${en.key}': en.value},
+];
+
 /// 체크 칸 하나의 입력 종류. 저장 키는 [name]이라 이름을 바꾸지 마세요.
 enum PartType {
   /// ○ / X / · (교재예습, 후기, 참석 등)
@@ -90,8 +109,8 @@ class PartDef {
     final id = m['id'];
     return PartDef(
       id: id is String && id.isNotEmpty ? id : legacyPartId(itemId, index),
-      label: (m['label'] as String?) ?? '',
-      type: PartType.fromName(m['type'] as String?),
+      label: _str(m['label']),
+      type: PartType.fromName(_strOrNull(m['type'])),
       dotReason: m['dotReason'] != false,
     );
   }
@@ -119,15 +138,12 @@ class ItemDef {
   final List<PartDef> parts;
 
   factory ItemDef.fromMap(Map<String, dynamic> m) {
-    final id = (m['id'] as String?) ?? '';
-    final raw = (m['parts'] as List?) ?? const [];
+    final id = _str(m['id']);
+    final raw = _maps(m['parts']);
     return ItemDef(
       id: id,
-      label: (m['label'] as String?) ?? '',
-      parts: [
-        for (var i = 0; i < raw.length; i++)
-          PartDef.fromMap(Map<String, dynamic>.from(raw[i] as Map), itemId: id, index: i),
-      ],
+      label: _str(m['label']),
+      parts: [for (var i = 0; i < raw.length; i++) PartDef.fromMap(raw[i], itemId: id, index: i)],
     );
   }
 
@@ -159,8 +175,7 @@ class Verse {
   /// 본문 (비면 장절만 보여요)
   final String text;
 
-  factory Verse.fromMap(Map<String, dynamic> m) =>
-      Verse(ref: (m['ref'] as String?) ?? '', text: (m['text'] as String?) ?? '');
+  factory Verse.fromMap(Map<String, dynamic> m) => Verse(ref: _str(m['ref']), text: _str(m['text']));
 
   Map<String, dynamic> toMap() => {'ref': ref, 'text': text};
 
@@ -177,10 +192,7 @@ class Verse {
       ];
     }
     if (raw is List) {
-      return [
-        for (final e in raw)
-          if (e is Map) Verse.fromMap(Map<String, dynamic>.from(e)),
-      ];
+      return [for (final e in _maps(raw)) Verse.fromMap(e)];
     }
     return const [];
   }
@@ -226,12 +238,12 @@ class WeekInfo {
   DateTime? get classDate => tryParseYmd(date);
 
   factory WeekInfo.fromMap(Map<String, dynamic> m) => WeekInfo(
-    date: (m['date'] as String?) ?? '',
-    book: (m['book'] as String?) ?? '',
-    title: (m['title'] as String?) ?? '',
+    date: _str(m['date']),
+    book: _str(m['book']),
+    title: _str(m['title']),
     verses: Verse.listFrom(m['verses']),
-    sharing: (m['sharing'] as String?) ?? '',
-    off: (m['off'] as bool?) ?? false,
+    sharing: _str(m['sharing']),
+    off: _bool(m['off'], false),
   );
 
   Map<String, dynamic> toMap() => {
@@ -278,11 +290,8 @@ class ExtraRow {
 
   DateTime? get day => tryParseYmd(date);
 
-  factory ExtraRow.fromMap(Map<String, dynamic> m) => ExtraRow(
-    label: (m['label'] as String?) ?? '',
-    date: (m['date'] as String?) ?? '',
-    title: (m['title'] as String?) ?? '',
-  );
+  factory ExtraRow.fromMap(Map<String, dynamic> m) =>
+      ExtraRow(label: _str(m['label']), date: _str(m['date']), title: _str(m['title']));
 
   Map<String, dynamic> toMap() => {'label': label, 'date': date, 'title': title};
 
@@ -345,22 +354,20 @@ class Course {
   String get scheduleLabel => [weekdayLabel(weekday), if (time.isNotEmpty) time].join(' ');
 
   factory Course.fromMap(String id, Map<String, dynamic> m) {
-    List<T> list<T>(String key, T Function(Map<String, dynamic>) f) => [
-      for (final e in (m[key] as List?) ?? const []) f(Map<String, dynamic>.from(e as Map)),
-    ];
+    List<T> list<T>(String key, T Function(Map<String, dynamic>) f) => [for (final e in _maps(m[key])) f(e)];
     final u = m['updatedAt'];
     return Course(
       id: id,
-      name: (m['name'] as String?) ?? '',
-      term: (m['term'] as String?) ?? '',
-      weekday: ((m['weekday'] as num?) ?? DateTime.saturday).toInt().clamp(1, 7),
-      time: (m['time'] as String?) ?? '',
-      order: ((m['order'] as num?) ?? 0).toInt(),
-      visible: (m['visible'] as bool?) ?? true,
+      name: _str(m['name']),
+      term: _str(m['term']),
+      weekday: _int(m['weekday'], DateTime.saturday).clamp(1, 7),
+      time: _str(m['time']),
+      order: _int(m['order'], 0),
+      visible: _bool(m['visible'], true),
       weeks: list('weeks', WeekInfo.fromMap),
       extras: list('extras', ExtraRow.fromMap),
       items: list('items', ItemDef.fromMap),
-      guide: (m['guide'] as String?) ?? '',
+      guide: _str(m['guide']),
       updatedAt: u is Timestamp ? u.toDate() : (u is DateTime ? u : null),
     );
   }
