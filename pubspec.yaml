@@ -1,5 +1,5 @@
 name: coram_deo
-description: "A new Flutter project."
+description: "하나님앞에서 - 교회 훈련 과정 주간 체크표"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -33,7 +33,15 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
+  flutter_riverpod: ^2.6.1
+  shared_preferences: ^2.5.6
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:
