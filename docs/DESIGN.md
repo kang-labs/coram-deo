@@ -46,7 +46,7 @@
 
 기본 항목(제자대학2학기 종이 표 그대로, 새 반의 기본값):
 
-1. 출석/후기 — 출석(attend) + 후기(mark)
+1. 훈련 — 출석(attend) + 후기(mark)  (항목 id는 attend 그대로)
 2. 교재예습 (mark)
 3. 필독서 읽기 (mark)
 4. 성경읽기 (days)
@@ -133,7 +133,7 @@ courses/{courseId}
   visible: true
   weeks: [ {date: '2026-09-12', title: '1과 위대한 부르심', verses: '고후 1:20\n엡 6:10,11', sharing: '', off: false}, … ]   // 순서 = 주차
   extras: [ {label: '개강', date: '2026-09-06', title: 'OT'}, {label: '졸업예배', date: '2026-12-06', title: ''} ]
-  items: [ {id: 'attend', label: '출석/후기', parts: [{label: '출석', type: 'attend'}, {label: '후기', type: 'mark'}]}, … ]
+  items: [ {id: 'attend', label: '훈련', parts: [{id: 'att', label: '출석', type: 'attend'}, {id: 'review', label: '후기', type: 'mark'}]}, … ]
   guide: '기록요령 글'
   updatedAt
 ```

@@ -12,7 +12,7 @@ void main() {
     expect(c.toMap()['weeks'][0]['book'], '세계비전의 기쁨 I');
     expect(c.toMap()['items'][0], {
       'id': 'attend',
-      'label': '출석/후기',
+      'label': '훈련',
       'parts': [
         {'id': 'att', 'label': '출석', 'type': 'attend'},
         {'id': 'review', 'label': '후기', 'type': 'mark'},

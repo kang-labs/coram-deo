@@ -32,7 +32,7 @@ def part(label: str, type_: str = "mark", pid: str = "main") -> dict:
 
 # 칸 id는 폰 기록과 이어지는 키 (칸 하나면 'main'). 앱 lib/core/models/course_defaults.dart 와 같게.
 DEFAULT_ITEMS = [
-    {"id": "attend", "label": "출석/후기", "parts": [part("출석", "attend", "att"), part("후기", pid="review")]},
+    {"id": "attend", "label": "훈련", "parts": [part("출석", "attend", "att"), part("후기", pid="review")]},
     {"id": "prep", "label": "교재예습", "parts": [part("교재예습")]},
     {"id": "book", "label": "필독서 읽기", "parts": [part("필독서")]},
     {"id": "bible", "label": "성경읽기", "parts": [part("성경", "days")]},

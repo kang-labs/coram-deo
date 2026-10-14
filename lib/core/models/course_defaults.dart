@@ -6,7 +6,7 @@ import 'course.dart';
 const defaultItems = <ItemDef>[
   ItemDef(
     id: 'attend',
-    label: '출석/후기',
+    label: '훈련',
     parts: [
       PartDef(id: 'att', label: '출석', type: PartType.attend),
       PartDef(id: 'review', label: '후기', type: PartType.mark),

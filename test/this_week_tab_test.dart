@@ -51,7 +51,7 @@ void main() {
     expect(find.text('10/11~10/17'), findsOneWidget);
     expect(find.text('세계비전의 기쁨 I'), findsOneWidget);
     expect(find.text('요 4:35\n행 2:47'), findsOneWidget);
-    expect(find.text('출석/후기'), findsOneWidget);
+    expect(find.text('훈련'), findsOneWidget);
     expect(find.text('금요기도회'), findsOneWidget);
     expect(find.text('0/7'), findsNWidgets(3)); // 성경·큐티·기도
     expect(find.text('0회 → −3'), findsOneWidget); // 새벽기도
