@@ -50,7 +50,10 @@ void main() {
     // 400dp 폭에서는 요일까지 넣으면 한 줄에 안 들어가서 짧게 (두 줄로 꺾이지 않게)
     expect(find.text('10/11~10/17'), findsOneWidget);
     expect(find.text('세계비전의 기쁨 I'), findsOneWidget);
-    expect(find.text('요 4:35\n행 2:47'), findsOneWidget);
+    // 본문이 있으면 본문을 크게 + 장절, 없으면 장절만
+    expect(find.text('눈을 들어 밭을 보라'), findsOneWidget);
+    expect(find.text('요 4:35'), findsOneWidget);
+    expect(find.text('행 2:47'), findsOneWidget);
     expect(find.text('훈련'), findsOneWidget);
     expect(find.text('금요기도회'), findsOneWidget);
     expect(find.text('0/7'), findsNWidgets(3)); // 성경·큐티·기도
@@ -78,6 +81,33 @@ void main() {
     // 출석 버튼 순서 ○ / X / 지각, 교재예습은 ○ / X / ·, 구절암송은 ○ / X
     expect(find.bySemanticsLabel('지각'), findsOneWidget);
     expect(find.bySemanticsLabel('·'), findsNWidgets(14)); // mark 칸 14개 (후기·금요기도회 등)
+  });
+
+  testWidgets('· 고르면 사유를 꼭 적고(취소하면 그대로), 줄 아래 보이며, 다른 값으로 바꾸면 지워짐', (tester) async {
+    final (_, prefs) = await _pumpApp(tester);
+    // 교재예습(두 번째 카드)의 · — 첫 ·는 훈련의 후기
+    final dot = find.bySemanticsLabel('·').at(1);
+
+    await tester.tap(dot);
+    await tester.pumpAndSettle();
+    expect(find.text('사유'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('rec.jedae2'), isNull);
+
+    await tester.tap(dot);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '이번 주 과제 없음');
+    await tester.pump(); // 저장 버튼이 켜지게
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('사유: 이번 주 과제 없음'), findsOneWidget);
+    expect(prefs.getString('rec.jedae2'), '{"6":{"prep":{"main":{"v":"dot","note":"이번 주 과제 없음"}}}}');
+
+    await tester.tap(find.bySemanticsLabel('○').at(2));
+    await tester.pump();
+    expect(find.textContaining('사유:'), findsNothing);
+    expect(prefs.getString('rec.jedae2'), '{"6":{"prep":{"main":"o"}}}');
   });
 
   testWidgets('주차 넘기기, 이번 주로 돌아오기, 체크표 줄 누르면 그 주로', (tester) async {

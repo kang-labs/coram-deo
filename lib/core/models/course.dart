@@ -57,6 +57,9 @@ enum MarkValue {
   /// 버튼 이름 (지각처럼 표보다 길게)
   final String buttonLabel;
 
+  /// 고를 때 사유를 꼭 적는 값 (· = 이번 주 해당 없음 등)
+  bool get needsNote => this == dot;
+
   static MarkValue? fromCode(Object? code) {
     for (final v in values) {
       if (v.code == code) return v;
@@ -136,6 +139,50 @@ class ItemDef {
   int get hashCode => Object.hash(id, label, Object.hashAll(parts));
 }
 
+/// 암송구절 하나: 본문(관리자가 직접 적음, 앱에 성경 본문을 넣지 않아요) + 장절
+@immutable
+class Verse {
+  const Verse({required this.ref, this.text = ''});
+
+  /// 장절 (예: 요 4:35)
+  final String ref;
+
+  /// 본문 (비면 장절만 보여요)
+  final String text;
+
+  factory Verse.fromMap(Map<String, dynamic> m) =>
+      Verse(ref: (m['ref'] as String?) ?? '', text: (m['text'] as String?) ?? '');
+
+  Map<String, dynamic> toMap() => {'ref': ref, 'text': text};
+
+  Verse copyWith({String? ref, String? text}) => Verse(ref: ref ?? this.ref, text: text ?? this.text);
+
+  bool get isEmpty => ref.trim().isEmpty && text.trim().isEmpty;
+
+  /// 서버 값 읽기: 목록({ref, text}) 또는 예전 여러 줄 글(줄마다 장절, 본문 없음)
+  static List<Verse> listFrom(Object? raw) {
+    if (raw is String) {
+      return [
+        for (final line in raw.split('\n'))
+          if (line.trim().isNotEmpty) Verse(ref: line.trim()),
+      ];
+    }
+    if (raw is List) {
+      return [
+        for (final e in raw)
+          if (e is Map) Verse.fromMap(Map<String, dynamic>.from(e)),
+      ];
+    }
+    return const [];
+  }
+
+  @override
+  bool operator ==(Object other) => other is Verse && other.ref == ref && other.text == text;
+
+  @override
+  int get hashCode => Object.hash(ref, text);
+}
+
 /// 일정표의 한 주 (순서 = 주차)
 @immutable
 class WeekInfo {
@@ -143,7 +190,7 @@ class WeekInfo {
     required this.date,
     this.book = '',
     this.title = '',
-    this.verses = '',
+    this.verses = const [],
     this.sharing = '',
     this.off = false,
   });
@@ -157,8 +204,8 @@ class WeekInfo {
   /// 훈련 내용 (여러 줄)
   final String title;
 
-  /// 암송구절 (여러 줄)
-  final String verses;
+  /// 암송구절 (본문 + 장절)
+  final List<Verse> verses;
 
   /// 나눔
   final String sharing;
@@ -173,7 +220,7 @@ class WeekInfo {
     date: (m['date'] as String?) ?? '',
     book: (m['book'] as String?) ?? '',
     title: (m['title'] as String?) ?? '',
-    verses: (m['verses'] as String?) ?? '',
+    verses: Verse.listFrom(m['verses']),
     sharing: (m['sharing'] as String?) ?? '',
     off: (m['off'] as bool?) ?? false,
   );
@@ -182,12 +229,12 @@ class WeekInfo {
     'date': date,
     'book': book,
     'title': title,
-    'verses': verses,
+    'verses': [for (final v in verses) v.toMap()],
     'sharing': sharing,
     'off': off,
   };
 
-  WeekInfo copyWith({String? date, String? book, String? title, String? verses, String? sharing, bool? off}) =>
+  WeekInfo copyWith({String? date, String? book, String? title, List<Verse>? verses, String? sharing, bool? off}) =>
       WeekInfo(
         date: date ?? this.date,
         book: book ?? this.book,
@@ -203,12 +250,12 @@ class WeekInfo {
       other.date == date &&
       other.book == book &&
       other.title == title &&
-      other.verses == verses &&
+      listEquals(other.verses, verses) &&
       other.sharing == sharing &&
       other.off == off;
 
   @override
-  int get hashCode => Object.hash(date, book, title, verses, sharing, off);
+  int get hashCode => Object.hash(date, book, title, Object.hashAll(verses), sharing, off);
 }
 
 /// 주차 밖의 일정 줄 (개강, 졸업예배 등)

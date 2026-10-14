@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/dialogs.dart';
 import '../../../app/widgets.dart';
 import '../../../core/dates.dart';
 import '../../../core/models/course.dart';
@@ -115,11 +116,36 @@ class _ChoiceInput extends ConsumerWidget {
   final DateTime classDate;
   final Widget label;
 
+  /// 사유 적기 창. 취소하면 null.
+  Future<String?> _askNote(BuildContext context, String? current) => showTextInputDialog(
+    context,
+    title: '사유',
+    label: '왜 ·인지 적어 주세요',
+    hint: '예: 이번 주 과제 없음',
+    initialValue: current ?? '',
+    maxLength: noteMaxLength,
+  );
+
+  Future<void> _select(BuildContext context, WidgetRef ref, String? code, String? note) async {
+    final notifier = ref.read(courseRecordProvider.notifier);
+    final mark = MarkValue.fromCode(code);
+    if (mark != null && mark.needsNote) {
+      // 사유는 꼭 적어요. 취소하면 바꾸지 않아요.
+      final n = await _askNote(context, note);
+      if (n == null || n.trim().isEmpty) return;
+      notifier.setValue(pref.week, pref.itemId, pref.partId, code, note: n);
+    } else {
+      notifier.setValue(pref.week, pref.itemId, pref.partId, code);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final value = ref.watch(courseRecordProvider.select((r) => r.value(pref.week, pref.itemId, pref.partId)));
+    final entry = ref.watch(courseRecordProvider.select((r) => r.entry(pref.week, pref.itemId, pref.partId)));
+    final value = entry.value;
+    final note = entry.note;
     final started = ref.watch(todayProvider.select((t) => weekStarted(classDate, t)));
-    return Row(
+    final row = Row(
       children: [
         Expanded(child: label),
         SelectPills<String>(
@@ -134,14 +160,37 @@ class _ChoiceInput extends ConsumerWidget {
             color: on ? color : context.palette.hint,
           ),
           selected: value is String ? value : null,
-          onSelected: !started
-              ? null
-              : (v) => ref.read(courseRecordProvider.notifier).setValue(pref.week, pref.itemId, pref.partId, v),
+          onSelected: !started ? null : (v) => _select(context, ref, v, note),
+        ),
+      ],
+    );
+    if (note == null) return row;
+    // 사유: 줄 아래 작은 글씨, 누르면 고치기
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row,
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _select(context, ref, value as String?, note),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 2),
+            child: Row(
+              children: [
+                Icon(Icons.edit_note_rounded, size: 16, color: context.palette.inkSoft),
+                const SizedBox(width: 4),
+                Expanded(child: MutedText('사유: $note', style: const TextStyle(fontSize: 13))),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 }
+
+/// 사유 최대 글자 수
+const noteMaxLength = 60;
 
 /// 요일 7칸 (요일 + 날짜). 오늘은 테두리, 아직 오지 않은 날은 누를 수 없어요. 옆에 합계.
 class _DailyInput extends ConsumerWidget {

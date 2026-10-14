@@ -15,6 +15,9 @@ abstract final class CourseLimits {
   static const partsPerItem = 6;
   static const weekText = 500;
   static const book = 60;
+  static const versesPerWeek = 6;
+  static const verseRef = 40;
+  static const verseText = 1000;
   static const extraLabel = 30;
   static const extraTitle = 200;
 }

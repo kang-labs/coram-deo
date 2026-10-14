@@ -60,6 +60,16 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     name: _draft.name.trim(),
     term: _draft.term.trim(),
     time: _draft.time.trim(),
+    // 빈 암송구절 줄은 빼고 저장
+    weeks: [
+      for (final w in _draft.weeks)
+        w.copyWith(
+          verses: [
+            for (final v in w.verses)
+              if (!v.isEmpty) Verse(ref: v.ref.trim(), text: v.text.trim()),
+          ],
+        ),
+    ],
     items: [
       for (final item in _draft.items)
         item.copyWith(
@@ -299,7 +309,8 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
 
   Course get d => widget.draft;
 
-  void _setWeek(int i, WeekInfo w) => widget.onChanged(d.copyWith(weeks: [...d.weeks]..[i] = w));
+  void _setWeek(int i, WeekInfo w, {bool regenerate = false}) =>
+      widget.onChanged(d.copyWith(weeks: [...d.weeks]..[i] = w), regenerate: regenerate);
 
   void _setExtra(int i, ExtraRow e) => widget.onChanged(d.copyWith(extras: [...d.extras]..[i] = e));
 
@@ -441,6 +452,13 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
                     maxLines: f.multiline ? 4 : 1,
                     maxLength: f.multiline ? CourseLimits.weekText : CourseLimits.book,
                   ),
+                _VersesEditor(
+                  keyPrefix: 'w$i',
+                  gen: g,
+                  verses: d.weeks[i].verses,
+                  onChanged: (list, {regenerate = false}) =>
+                      _setWeek(i, d.weeks[i].copyWith(verses: list), regenerate: regenerate),
+                ),
               ],
             ),
           ),
@@ -542,7 +560,6 @@ typedef _WeekField = ({
 final List<_WeekField> _weekFields = [
   (key: 'book', label: '교재', multiline: false, get: (w) => w.book, set: (w, v) => w.copyWith(book: v)),
   (key: 'title', label: '훈련 내용', multiline: true, get: (w) => w.title, set: (w, v) => w.copyWith(title: v)),
-  (key: 'verses', label: '암송구절 (한 줄에 하나)', multiline: true, get: (w) => w.verses, set: (w, v) => w.copyWith(verses: v)),
   (key: 'sharing', label: '나눔', multiline: true, get: (w) => w.sharing, set: (w, v) => w.copyWith(sharing: v)),
 ];
 
@@ -750,6 +767,71 @@ class _GuideSection extends StatelessWidget {
             label: const Text('기본 글로 되돌리기'),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// 한 주의 암송구절들: 구절마다 장절 + 본문(여러 줄), 추가·삭제.
+/// 본문은 관리자가 직접 적어요 (앱에 성경 본문을 넣지 않아요).
+class _VersesEditor extends StatelessWidget {
+  const _VersesEditor({required this.keyPrefix, required this.gen, required this.verses, required this.onChanged});
+
+  final String keyPrefix;
+  final int gen;
+  final List<Verse> verses;
+  final void Function(List<Verse> next, {bool regenerate}) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SheetLabel('암송구절'),
+        for (var k = 0; k < verses.length; k++)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    _field(
+                      '$keyPrefix/v$k/ref/$gen',
+                      '장절 ${k + 1}',
+                      verses[k].ref,
+                      (v) => onChanged([...verses]..[k] = verses[k].copyWith(ref: v)),
+                      hint: '예: 요 4:35',
+                      maxLength: CourseLimits.verseRef,
+                    ),
+                    _field(
+                      '$keyPrefix/v$k/text/$gen',
+                      '본문 (비우면 장절만 보여요)',
+                      verses[k].text,
+                      (v) => onChanged([...verses]..[k] = verses[k].copyWith(text: v)),
+                      maxLines: 5,
+                      maxLength: CourseLimits.verseText,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '구절 지우기',
+                onPressed: () => onChanged([...verses]..removeAt(k), regenerate: true),
+                icon: const Icon(Icons.remove_circle_outline_rounded),
+              ),
+            ],
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: verses.length >= CourseLimits.versesPerWeek
+                ? null
+                : () => onChanged([...verses, const Verse(ref: '')], regenerate: true),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('구절 추가'),
+          ),
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }

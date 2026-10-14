@@ -41,6 +41,20 @@ void main() {
     expect(legacyPartId('prep', 3), 'p3');
   });
 
+  test('사유: 값과 함께 저장, 다른 값으로 바꾸면 지워짐, JSON 왕복', () {
+    var r = CourseRecord.empty.withValue(6, 'prep', 'main', 'dot', note: ' 이번 주 과제 없음 ');
+    expect(r.value(6, 'prep', 'main'), 'dot');
+    expect(r.note(6, 'prep', 'main'), '이번 주 과제 없음');
+    expect(r.toJson(), '{"6":{"prep":{"main":{"v":"dot","note":"이번 주 과제 없음"}}}}');
+    expect(CourseRecord.fromJson(r.toJson()), r);
+    r = r.withValue(6, 'prep', 'main', 'o');
+    expect(r.note(6, 'prep', 'main'), isNull);
+    expect(r.toJson(), '{"6":{"prep":{"main":"o"}}}');
+    // 사유가 비거나 이상하면 값만
+    expect(CourseRecord.fromJson('{"6":{"a":{"main":{"v":"dot","note":3}}}}').value(6, 'a', 'main'), 'dot');
+    expect(CourseRecord.fromJson('{"6":{"a":{"main":{"v":true}}}}').isEmpty, isTrue);
+  });
+
   test('깨진 JSON이나 이상한 값은 건너뜀', () {
     expect(CourseRecord.fromJson('not json').isEmpty, isTrue);
     expect(CourseRecord.fromJson('[1,2]').isEmpty, isTrue);

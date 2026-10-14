@@ -78,15 +78,15 @@ BOOK1 = "세계비전의 기쁨 I"
 BOOK2 = "세계비전의 기쁨 II"
 
 # 제자대학2학기 (2026-10-14 받은 새 일정표, §4). (날짜, 교재, 훈련 내용, 암송구절, 나눔, 휴강)
-# 여러 과·여러 구절은 줄을 나눠 넣어요.
+# 여러 과는 줄을 나눠 넣어요. 암송구절은 장절만 줄마다(본문은 관리자가 앱에서 적어요 — 저작권). 나눔은 한 줄.
 JEDAE2_WEEKS = [
     ("2026-09-12", BOOK1, "1과 위대한 부르심", "고후 1:20\n엡 6:10,11", "", False),
     ("2026-09-19", BOOK1, "2과 생활 속에서 행복모임을 열라\n3과 승리를 확신하는 삶", "딤후 2:3,4\n눅 16:10",
-     "제자삼는 세계비전 part1\n1,2장", False),
+     "제자삼는 세계비전 part1 1,2장", False),
     ("2026-09-26", "", "추석 연휴", "", "", True),
     ("2026-10-03", BOOK1, "4과 셀가족모임 말씀 나눔 인도법\n5과 순종하는 제자", "딤후 2:21\n딤전 4:7,8", "3,4장", False),
     ("2026-10-10", BOOK1, "6과 성숙한 신앙 인격과 사역\n7과 세계비전을 이루시는 성령님", "고전 9:25\n고전 9:27", "5장", False),
-    ("2026-10-17", BOOK1, "8과 배가 번식을 열망하라\n9과 하나님이 기뻐하시는 사명자", "요 4:35\n행 2:47", "part2\n1,2장", False),
+    ("2026-10-17", BOOK1, "8과 배가 번식을 열망하라\n9과 하나님이 기뻐하시는 사명자", "요 4:35\n행 2:47", "part2 1,2장", False),
     ("2026-10-24", BOOK2, "1과 역사의 주역", "딤후 2:2\n마 9:38", "3,4장", False),
     ("2026-10-31", BOOK2, "2과 행복이 넘치는 셀가족\n3과 인턴Intern을 세워라", "빌 4:9\n롬 16:4", "5장", False),
     ("2026-11-07", BOOK2, "4과 영광스러운 셀리더", "단 12:3\n딤후 4:8", "나가든지 보내든지 하라 part 1,2", False),
@@ -99,6 +99,11 @@ JEDAE2_EXTRAS = [
     {"label": "개강", "date": "2026-09-06", "title": "OT"},
     {"label": "졸업예배", "date": "2026-12-06", "title": ""},
 ]
+
+
+def verses(refs: str) -> list[dict]:
+    """줄마다 장절 하나 → [{ref, text: ""}] (본문은 비워 둬요)"""
+    return [{"ref": r.strip(), "text": ""} for r in refs.split("\n") if r.strip()]
 
 
 def build_courses() -> dict[str, dict]:
@@ -119,7 +124,7 @@ def build_courses() -> dict[str, dict]:
         if cid == "jedae2":
             doc["term"] = "22기 2학기"
             doc["weeks"] = [
-                {"date": d, "book": b, "title": t, "verses": v, "sharing": s, "off": off}
+                {"date": d, "book": b, "title": t, "verses": verses(v), "sharing": s, "off": off}
                 for d, b, t, v, s, off in JEDAE2_WEEKS
             ]
             doc["extras"] = JEDAE2_EXTRAS

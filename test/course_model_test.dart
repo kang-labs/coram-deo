@@ -20,6 +20,19 @@ void main() {
     });
   });
 
+  test('암송구절: 목록 읽기, 예전 여러 줄 글은 장절만', () {
+    expect(Verse.listFrom('고후 1:20\n엡 6:10,11\n'), const [Verse(ref: '고후 1:20'), Verse(ref: '엡 6:10,11')]);
+    expect(
+      Verse.listFrom([
+        {'ref': '요 4:35', 'text': '본문'},
+      ]),
+      const [Verse(ref: '요 4:35', text: '본문')],
+    );
+    expect(Verse.listFrom(null), isEmpty);
+    final w = WeekInfo.fromMap({'date': '2026-09-12', 'verses': '요 4:35'});
+    expect(WeekInfo.fromMap(w.toMap()), w);
+  });
+
   test('빠진 값은 기본값, updatedAt Timestamp 읽기', () {
     final c = Course.fromMap('x', {'name': '반', 'updatedAt': Timestamp.fromMillisecondsSinceEpoch(0)});
     expect(c.weekday, DateTime.saturday);

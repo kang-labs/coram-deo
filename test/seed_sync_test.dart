@@ -28,7 +28,11 @@ void main() {
     expect(jedae2.classDates.every((d) => d != null && d.weekday == DateTime.saturday), isTrue);
     expect(jedae2.weeks[2].off, isTrue);
     expect(jedae2.weeks.where((w) => w.off).length, 1);
-    expect(jedae2.weeks[3].verses, '딤후 2:21\n딤전 4:7,8');
+    expect(jedae2.weeks[3].verses, const [Verse(ref: '딤후 2:21'), Verse(ref: '딤전 4:7,8')]);
+    // 나눔은 한 줄 (줄바꿈 없음)
+    expect(jedae2.weeks.every((w) => !w.sharing.contains('\n')), isTrue);
+    expect(jedae2.weeks[1].sharing, '제자삼는 세계비전 part1 1,2장');
+    expect(jedae2.weeks[5].sharing, 'part2 1,2장');
     expect(jedae2.weeks[6].book, '세계비전의 기쁨 II');
     expect(jedae2.extras.map((x) => x.label), ['개강', '졸업예배']);
   });

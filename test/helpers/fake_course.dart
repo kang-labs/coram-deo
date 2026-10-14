@@ -16,7 +16,7 @@ Course fakeCourse() {
         weeks[i].copyWith(
           book: i < 6 ? '세계비전의 기쁨 I' : '세계비전의 기쁨 II',
           title: i == 2 ? '추석 연휴 (휴강)' : '${i + 1}주 훈련',
-          verses: i == 5 ? '요 4:35\n행 2:47' : '',
+          verses: i == 5 ? const [Verse(ref: '요 4:35', text: '눈을 들어 밭을 보라'), Verse(ref: '행 2:47')] : const [],
           off: i == 2,
         ),
     ],
