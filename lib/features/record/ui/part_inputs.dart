@@ -123,7 +123,8 @@ class _ChoiceInput extends ConsumerWidget {
       children: [
         Expanded(child: label),
         SelectPills<String>(
-          minWidth: 52,
+          // '지각'도 ○·X와 같은 폭이 되게 넉넉히 → 줄마다 버튼 위치가 맞아요
+          minWidth: 64,
           clearable: true,
           options: [for (final v in part.type.choices) (value: v.code, label: v.buttonLabel, tone: markTone(v))],
           glyph: (code, color, on) => MarkGlyph(
