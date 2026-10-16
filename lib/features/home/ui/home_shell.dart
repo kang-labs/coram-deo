@@ -5,6 +5,7 @@ import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
 import '../../course/logic/course_providers.dart';
 import '../../course/ui/course_picker_screen.dart';
+import '../../install/ui/install_guide.dart';
 import '../../record/logic/record_providers.dart';
 import '../../schedule/ui/schedule_tab.dart';
 import '../../settings/ui/settings_tab.dart';
@@ -77,6 +78,31 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     super.dispose();
   }
 
+  Widget _tabStack(HomeTab tab, Course? course, AsyncValue<Course?> courseAsync) {
+    return IndexedStack(
+      index: tab.index,
+      children: [
+        for (final t in HomeTab.values)
+          KeyedSubtree(
+            key: ValueKey(t),
+            child: !_tabs[t]!.needsCourse || course != null
+                ? _tabs[t]!.build(course)
+                : courseAsync.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : EmptyState(
+                    icon: Icons.school_rounded,
+                    title: courseAsync.hasError ? '반 정보를 못 불러왔어요' : '반을 찾을 수 없어요',
+                    message: courseAsync.hasError ? '인터넷 연결을 확인해 주세요.' : '반이 없어졌거나 바뀌었어요. 반을 다시 골라 주세요.',
+                    action: FilledButton(
+                      onPressed: () => showCoursePickerSheet(context, ref),
+                      child: const Text('반 고르기'),
+                    ),
+                  ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tab = ref.watch(homeTabProvider);
@@ -84,26 +110,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final course = courseAsync.valueOrNull;
     return Scaffold(
       appBar: AppBar(toolbarHeight: 64, title: _CourseTitle(course: course)),
-      body: IndexedStack(
-        index: tab.index,
+      body: Column(
         children: [
-          for (final t in HomeTab.values)
-            KeyedSubtree(
-              key: ValueKey(t),
-              child: !_tabs[t]!.needsCourse || course != null
-                  ? _tabs[t]!.build(course)
-                  : courseAsync.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : EmptyState(
-                      icon: Icons.school_rounded,
-                      title: courseAsync.hasError ? '반 정보를 못 불러왔어요' : '반을 찾을 수 없어요',
-                      message: courseAsync.hasError ? '인터넷 연결을 확인해 주세요.' : '반이 없어졌거나 바뀌었어요. 반을 다시 골라 주세요.',
-                      action: FilledButton(
-                        onPressed: () => showCoursePickerSheet(context, ref),
-                        child: const Text('반 고르기'),
-                      ),
-                    ),
-            ),
+          const InstallBanner(),
+          Expanded(child: _tabStack(tab, course, courseAsync)),
         ],
       ),
       bottomNavigationBar: NavigationBar(

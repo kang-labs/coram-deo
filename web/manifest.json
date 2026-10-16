@@ -1,0 +1,18 @@
+{
+    "name": "하나님앞에서",
+    "short_name": "하나님앞에서",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#F6F7F9",
+    "theme_color": "#2F3E5C",
+    "description": "교회 훈련 과정 12주 체크표",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "lang": "ko",
+    "icons": [
+        { "src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png" },
+        { "src": "icons/Icon-512.png", "sizes": "512x512", "type": "image/png" },
+        { "src": "icons/Icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+        { "src": "icons/Icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

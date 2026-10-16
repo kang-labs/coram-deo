@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'core/local_storage.dart';
+import 'core/web_env.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -14,5 +15,7 @@ Future<void> main() async {
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
     SharedPreferences.getInstance(),
   ).wait;
+  // 웹: 브라우저가 기록(저장 공간)을 자동으로 지우지 않게 요청해요. 기다리지 않아요.
+  requestPersistentStorage();
   runApp(ProviderScope(overrides: [sharedPreferencesProvider.overrideWithValue(prefs)], child: const CoramDeoApp()));
 }

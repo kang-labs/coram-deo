@@ -95,3 +95,13 @@
 - 사유 입력 예시: '예: 휴일'.
 - seed.py: 서버에 이미 있는 반은 건너뜀('건너뛰었어요'), `--force`일 때만 덮어씀(관리자가 앱에서 고친 내용 보호).
 
+
+## 웹앱 (아이폰용, 2026-10-16)
+
+- 주소 https://coram-deo-biblekang.web.app (Firebase Hosting, `build/web`). Firebase 웹 앱 `1:188449985743:web:cb60bd56ccb1c61a7413ba`, `firebase_options.dart`의 `web`.
+- 기록은 `shared_preferences` → 브라우저 localStorage(`flutter.` 접두). 서버로 가지 않음.
+- `lib/core/web_env.dart`: `isBrowserTab`(홈 화면 아이콘이 아니면 true), `isAppleDevice`, `requestPersistentStorage()`(main에서 기다리지 않고 호출). 안드로이드는 stub.
+- `features/install/ui/install_guide.dart`: 브라우저 탭이면 반 고르기·홈 화면 맨 위에 안내 띠(닫으면 이번 실행 동안만 숨김), 설정에 '홈 화면에 추가하는 방법'(웹만). 아이폰/안드로이드 단계가 다름.
+- 아이폰은 사파리와 홈 화면 아이콘의 저장 공간이 따로라 아이콘에서 반을 처음 다시 골라야 함.
+- 관리자 로그인: 웹은 `signInWithPopup`. 콘솔에서 Google 로그인 사용 설정이 되어 있어야 함(실기기 확인 안 함).
+- 아이콘: 남색 바탕 '앞'(맑은 고딕 굵게)으로 생성. 안드로이드 런처 아이콘은 아직 Flutter 기본.

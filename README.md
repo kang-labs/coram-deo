@@ -2,11 +2,14 @@
 
 [![Release](https://img.shields.io/github/v/release/kang-labs/coram-deo?label=Version&color=navy)](https://github.com/kang-labs/coram-deo/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84.svg)](https://github.com/kang-labs/coram-deo/releases/latest)
+[![iPhone](https://img.shields.io/badge/iPhone-웹앱-2F3E5C.svg)](https://coram-deo-biblekang.web.app)
 
 교회 훈련 과정 12주 체크표 '하나님앞에서'를 폰으로 쓰는 안드로이드 앱이에요.
 내 반을 고르면 주마다 체크할 항목이 나오고, 기록은 내 폰에만 저장돼요. 회원가입이 필요 없어요.
 
 ## 📱 다운로드
+
+### 안드로이드
 
 [**최신 버전 내려받기 (GitHub Releases)**](https://github.com/kang-labs/coram-deo/releases/latest) 페이지 아래쪽 **Assets**에서 `coram-deo-v○.○.○.apk`를 누르세요.
 
@@ -14,6 +17,18 @@
 - "출처를 알 수 없는 앱 설치" 허용을 물으면 허용해요. Play 스토어 밖에서 받은 앱이라 뜨는 안내예요.
 - 홈 화면에 **하나님앞에서** 아이콘이 생겨요.
 - 새 버전도 같은 방법으로 받아 덮어 설치하면 체크 기록이 그대로 남아요.
+
+### 아이폰 (웹앱)
+
+아이폰은 파일로 설치할 수 없어서 웹앱으로 써요. 기록은 앱과 똑같이 그 폰에만 저장돼요.
+
+1. 아이폰 **사파리**에서 **https://coram-deo-biblekang.web.app** 을 열어요. (카카오톡 안에서 열렸다면 ⋯ → "Safari로 열기")
+2. 공유 버튼 → **홈 화면에 추가** → 추가.
+3. 홈 화면에 생긴 **하나님앞에서** 아이콘으로만 열어요.
+
+- 사파리 탭에서 쓰면 7일 동안 안 쓸 때 기록이 지워질 수 있고, 사파리와 홈 화면 아이콘은 기록이 따로예요. 꼭 아이콘으로 써 주세요.
+- 설정 > 사파리 > "방문 기록 및 웹사이트 데이터 지우기"를 하면 기록도 지워져요.
+- 안드로이드도 크롬에서 같은 주소를 열고 ⋮ → "홈 화면에 추가"로 쓸 수 있어요.
 
 ---
 
@@ -51,6 +66,15 @@ gh release create v1.0.1 coram-deo-v1.0.1.apk --title "하나님앞에서 v1.0.1
 ```
 
 GitHub는 첨부 파일 이름의 한글을 지우므로 파일 이름은 영문으로 해요.
+
+### 웹앱 올리기 (Firebase Hosting)
+
+```bash
+flutter build web --release
+firebase deploy --only hosting               # → https://coram-deo-biblekang.web.app
+```
+
+시작 파일(index.html 등)은 캐시하지 않게 해 두어서, 다시 열면 새 버전이 받아져요.
 
 ## 반 데이터 넣기 (seed)
 

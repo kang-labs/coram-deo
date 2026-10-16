@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +10,7 @@ import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
 import '../../admin/ui/admin_screen.dart';
 import '../../course/ui/course_picker_screen.dart';
+import '../../install/ui/install_guide.dart';
 import '../../record/logic/record_providers.dart';
 import '../../theme/logic/theme_providers.dart';
 
@@ -63,6 +65,14 @@ class SettingsTab extends ConsumerWidget {
         subtitle: theme.label,
         onTap: () => _showThemeSheet(context),
       ),
+      if (kIsWeb)
+        (
+          icon: Icons.add_to_home_screen_rounded,
+          tone: Tone.warm,
+          title: '홈 화면에 추가하는 방법',
+          subtitle: '앱처럼 아이콘으로 열고, 기록을 안전하게 지켜요',
+          onTap: () => showInstallGuideSheet(context),
+        ),
       (
         icon: Icons.admin_panel_settings_rounded,
         tone: Tone.neutral,

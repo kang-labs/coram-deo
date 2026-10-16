@@ -5,6 +5,7 @@ import '../../../app/layout.dart';
 import '../../../app/sheets.dart';
 import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
+import '../../install/ui/install_guide.dart';
 import '../../record/logic/record_providers.dart';
 import '../logic/course_providers.dart';
 
@@ -16,20 +17,27 @@ class CoursePickerScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 40, AppLayout.sidePadding, 8),
-              sliver: SliverList.list(
-                children: [
-                  Text('하나님앞에서', style: Theme.of(context).textTheme.headlineMedium),
-                  const SizedBox(height: 8),
-                  const MutedText('내가 듣는 반을 골라 주세요. 체크 기록은 이 폰에만 저장돼요.'),
-                  const SizedBox(height: 16),
+        child: Column(
+          children: [
+            const InstallBanner(),
+            Expanded(
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 40, AppLayout.sidePadding, 8),
+                    sliver: SliverList.list(
+                      children: [
+                        Text('하나님앞에서', style: Theme.of(context).textTheme.headlineMedium),
+                        const SizedBox(height: 8),
+                        const MutedText('내가 듣는 반을 골라 주세요. 체크 기록은 이 폰에만 저장돼요.'),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                  CourseListSliver(onPicked: (c) => ref.read(selectedCourseIdProvider.notifier).select(c.id)),
                 ],
               ),
             ),
-            CourseListSliver(onPicked: (c) => ref.read(selectedCourseIdProvider.notifier).select(c.id)),
           ],
         ),
       ),

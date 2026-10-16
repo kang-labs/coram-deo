@@ -49,3 +49,7 @@ app.*.map.json
 
 # 릴리스용으로 복사한 apk
 /*.apk
+
+# Firebase 배포 캐시, 로컬 미리보기 설정
+.firebase/
+.claude/
