@@ -1,7 +1,23 @@
 # 하나님앞에서 (coram_deo)
 
+[![Release](https://img.shields.io/github/v/release/kang-labs/coram-deo?label=Version&color=navy)](https://github.com/kang-labs/coram-deo/releases/latest)
+[![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84.svg)](https://github.com/kang-labs/coram-deo/releases/latest)
+
 교회 훈련 과정 12주 체크표 '하나님앞에서'를 폰으로 쓰는 안드로이드 앱이에요.
-Flutter + Firebase(Firestore, 프로젝트 `coram-deo-biblekang`). 설계는 `docs/DESIGN.md`, 기능별 메모는 `docs/NOTES.md`.
+내 반을 고르면 주마다 체크할 항목이 나오고, 기록은 내 폰에만 저장돼요. 회원가입이 필요 없어요.
+
+## 📱 다운로드
+
+[**최신 버전 내려받기 (GitHub Releases)**](https://github.com/kang-labs/coram-deo/releases/latest) 페이지 아래쪽 **Assets**에서 `coram-deo-v○.○.○.apk`를 누르세요.
+
+- 휴대폰 브라우저에서 apk 파일을 내려받아 열어요.
+- "출처를 알 수 없는 앱 설치" 허용을 물으면 허용해요. Play 스토어 밖에서 받은 앱이라 뜨는 안내예요.
+- 홈 화면에 **하나님앞에서** 아이콘이 생겨요.
+- 새 버전도 같은 방법으로 받아 덮어 설치하면 체크 기록이 그대로 남아요.
+
+---
+
+아래는 개발용 안내예요. Flutter + Firebase(Firestore, 프로젝트 `coram-deo-biblekang`). 설계는 `docs/DESIGN.md`, 기능별 메모는 `docs/NOTES.md`.
 
 ## 실행
 
@@ -22,6 +38,19 @@ flutter build apk --release --split-per-abi
 ```
 
 release도 지금은 debug 키로 서명해요(`android/app/build.gradle.kts`).
+
+### 새 버전 올리기 (GitHub Releases)
+
+관리자 구글 로그인이 이 PC debug 키의 SHA-1에 묶여 있어서, GitHub Actions가 아니라 **이 PC에서 빌드해서** 올려요(다른 키로 서명하면 로그인도, 덮어 설치도 안 돼요).
+
+```bash
+# 1) pubspec.yaml의 version을 올린다 (예: 1.0.1+2) → 커밋·push
+flutter build apk --release                  # 모든 폰에서 되는 통합 apk
+cp build/app/outputs/flutter-apk/app-release.apk coram-deo-v1.0.1.apk
+gh release create v1.0.1 coram-deo-v1.0.1.apk --title "하나님앞에서 v1.0.1" --generate-notes
+```
+
+GitHub는 첨부 파일 이름의 한글을 지우므로 파일 이름은 영문으로 해요.
 
 ## 반 데이터 넣기 (seed)
 
