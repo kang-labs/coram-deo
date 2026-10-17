@@ -4,7 +4,7 @@
 
 - 전체 설계: `docs/DESIGN.md`. 새 기능 전에 해당 절을 먼저 읽을 것. 기능별 상세는 `docs/NOTES.md`.
 - 패키지 `kr.biblekang.coram_deo`, 표시 이름 하나님앞에서.
-- 자매 앱 `C:\Users\BB\Documents\sg_budget`(성경가계부)과 같은 스택·디자인 방식. 필요한 공통 코드는 거기서 가져와 다듬어 쓴다.
+- 자매 앱 `../sg_budget`(같은 Project 폴더 안)(성경가계부)과 같은 스택·디자인 방식. 필요한 공통 코드는 거기서 가져와 다듬어 쓴다.
 
 ## 핵심
 
