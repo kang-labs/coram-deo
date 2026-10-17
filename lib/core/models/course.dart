@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 
 import '../dates.dart';
 import 'course_defaults.dart' show legacyPartId;
+import 'program.dart';
+
+export 'program.dart';
 
 // ── 서버 값 읽기 도우미 ──
 // 서버 데이터 형식이 바뀌어도 이미 설치된 앱이 깨지지 않게, 읽기는 관대하게:
@@ -312,6 +315,9 @@ class Course {
     required this.id,
     required this.name,
     this.term = '',
+    this.program = '',
+    this.cohort = 0,
+    this.semester = 0,
     this.weekday = DateTime.saturday,
     this.time = '',
     this.order = 0,
@@ -326,8 +332,17 @@ class Course {
   final String id;
   final String name;
 
-  /// 기수·학기 글 (예: 22기 2학기)
+  /// 기수·학기 글 (예: 22기 2학기). 과정·기수가 있으면 화면에는 그쪽을 써요.
   final String term;
+
+  /// 과정 id ([Program.id]). 비어 있거나 모르는 값이면 '기타'로 묶어요.
+  final String program;
+
+  /// 기수 (예: 25). 0이면 없음.
+  final int cohort;
+
+  /// 어느 학기 반인지 (`config/app.semester`와 같으면 지금 학기). 예전 반은 0.
+  final int semester;
 
   /// 수업 요일 (DateTime.weekday: 월1 … 일7)
   final int weekday;
@@ -349,6 +364,22 @@ class Course {
 
   static final _classDatesCache = Expando<List<DateTime?>>('classDates');
 
+  Program? get programInfo => Program.fromId(program);
+
+  /// 반을 묶는 머리글 (예: 25기 양육훈련). 과정·기수가 없으면 기수·학기 글.
+  String get groupTitle {
+    final p = programInfo;
+    final parts = [if (cohort > 0) '$cohort기', ?p?.label];
+    return parts.isEmpty ? term : parts.join(' ');
+  }
+
+  /// 머리글 + 반 이름 (예: 25기 양육훈련 · 양육A반). 반 이름이 머리글에 들어 있으면 머리글만.
+  String get fullTitle {
+    final g = groupTitle;
+    if (g.isEmpty) return name;
+    return g.endsWith(name) ? g : '$g · $name';
+  }
+
   /// 수업 요일·시간 글 (예: 토 18:00)
   String get scheduleLabel => [weekdayLabel(weekday), if (time.isNotEmpty) time].join(' ');
 
@@ -359,6 +390,9 @@ class Course {
       id: id,
       name: _str(m['name']),
       term: _str(m['term']),
+      program: _str(m['program']),
+      cohort: _int(m['cohort'], 0).clamp(0, 9999),
+      semester: _int(m['semester'], 0),
       weekday: _int(m['weekday'], DateTime.saturday).clamp(1, 7),
       time: _str(m['time']),
       order: _int(m['order'], 0),
@@ -375,6 +409,9 @@ class Course {
   Map<String, dynamic> toMap() => {
     'name': name,
     'term': term,
+    'program': program,
+    'cohort': cohort,
+    'semester': semester,
     'weekday': weekday,
     'time': time,
     'order': order,
@@ -389,6 +426,9 @@ class Course {
     String? id,
     String? name,
     String? term,
+    String? program,
+    int? cohort,
+    int? semester,
     int? weekday,
     String? time,
     int? order,
@@ -401,6 +441,9 @@ class Course {
     id: id ?? this.id,
     name: name ?? this.name,
     term: term ?? this.term,
+    program: program ?? this.program,
+    cohort: cohort ?? this.cohort,
+    semester: semester ?? this.semester,
     weekday: weekday ?? this.weekday,
     time: time ?? this.time,
     order: order ?? this.order,
@@ -418,6 +461,9 @@ class Course {
       other.id == id &&
       other.name == name &&
       other.term == term &&
+      other.program == program &&
+      other.cohort == cohort &&
+      other.semester == semester &&
       other.weekday == weekday &&
       other.time == time &&
       other.order == order &&
@@ -433,6 +479,9 @@ class Course {
     id,
     name,
     term,
+    program,
+    cohort,
+    semester,
     weekday,
     time,
     order,

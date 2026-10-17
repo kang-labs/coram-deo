@@ -105,3 +105,18 @@
 - 아이폰은 사파리와 홈 화면 아이콘의 저장 공간이 따로라 아이콘에서 반을 처음 다시 골라야 함.
 - 관리자 로그인: 웹은 `signInWithPopup`. 콘솔에서 Google 로그인 사용 설정이 되어 있어야 함(실기기 확인 안 함).
 - 아이콘: 언덕 위 십자가 — 남색(#2F3E5C) 바탕, 흰(#F6F7F9) 십자가, 회청색(#5E7A99) 언덕. `python tool/dev/make_icons.py`로 안드로이드(mipmap-*/ic_launcher.png 둥근 사각형, mipmap-anydpi-v26 적응형: 전경 언덕+십자가 72/108배, 배경 @color/ic_launcher_background, monochrome은 십자가만)와 웹(Icon-*, maskable 0.8배, apple-touch 꽉 찬 사각형, favicon)을 한 번에 다시 만든다. 세로 막대는 언덕 속까지 그려 아래가 묻히게.
+
+## 과정·기수·학기, 지난 출석부 (2026-10-17)
+
+- 반에 `program`(Program enum id)·`cohort`·`semester` 추가(추가만, 없으면 ''/0/0). `config/app.semester` = 지금 학기. 머리글 `Course.groupTitle`(예: 25기 양육훈련, 없으면 term).
+- 반 고르기: `visibleCoursesProvider` = visible && semester == 지금 학기. `groupCourses()`로 과정 순서 → 기수 큰 것 → order로 묶음.
+- 학기 동기화: `selectedCourseOutdatedProvider` = 고른 반 semester < 서버 semester. `RootGate`가 listen → `SelectedCourseController.clear()`(기록 `rec.*`·사본 `snap.*`은 남음). 반 문서의 학기는 안 바뀌므로 늦게 업데이트한 폰도 풀림.
+- `watchSemester`는 모르면 null: 캐시에서 문서 없음, 이 폰이 쓴 값이 서버 확인 전(hasPendingWrites). 관리자 학기 넘기기 카드는 null이면 안 보임(거꾸로 넘기기 방지), 반 고르기는 첫 값까지 로딩·null이면 visible만.
+- 규칙: config/app.semester는 1씩만 올라감(처음 1). 반의 program·cohort·semester는 한 번 생기면 지우는 저장 거절(예전 앱 저장 방지).
+- 사본: `currentCourseProvider`가 받을 때마다 `LocalStore.saveSnapshot`(같으면 안 씀). 지난 출석부 `pastBooksProvider`(autoDispose) = 기록 있는 반 − 지금 반, 사본 없으면 서버 반.
+- 지난 출석부 보기: `PastBookScreen`이 중첩 ProviderScope로 `courseRecordProvider`(고정 기록)·`recordReadOnlyProvider`(true)·`currentWeekIndexProvider`·`todayWeekIndexProvider`(null)를 덮고 `CheckTableTab` 그대로 사용. 읽기 전용이면 주차 줄 누르기·'체크하러 가기' 없음.
+- 관리자: `_SemesterCard` 다음 학기 준비하기(`prepareNextSemester`, batch) / 새 학기 시작하기(`startSemester`: semester == 새 번호인 반만 visible, 예전 앱도 새 반만 보이게). 반 메뉴 '다음 기수로 복사' = `nextSemesterCopy`(기수 +1, 날짜 비움, 12주 채움, 숨김).
+- 새 반은 빈 날짜 12주로 시작. 일정표에서 1주 날짜를 고르면 날짜가 빈 뒤 주를 7일씩 채움(`_setFirstDate`).
+- 서버 기존 7반 과정·기수: `python tool/dev/seed.py --set-cohorts` (25 양육, 24 제자학교, 23 제자대학1, 22 제자대학2).
+- 예전 앱(v1.0.1 이하)은 학기를 몰라서 새 학기에 반이 풀리지 않음(반은 숨겨지니 목록엔 새 반만) — 업데이트하면 바로 풀림.
+- 검토(opus) 반영: 학기 모를 때 0으로 믿지 않기, 늦은 업데이트, 규칙. 남은 작은 점: 지난 출석부에서 주별/표 바꾸면 메인 체크표 보기도 같이 바뀜.

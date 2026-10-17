@@ -213,12 +213,33 @@ class _BasicSection extends StatelessWidget {
           '반 이름',
           d.name,
           (v) => onChanged(d.copyWith(name: v)),
-          hint: '예: 제자대학2학기',
+          hint: '예: 양육A반',
           maxLength: CourseLimits.name,
         ),
+        const SheetLabel('과정'),
+        SelectPills<Program>(
+          options: SelectPills.simple({for (final p in Program.values) p: p.label}),
+          selected: d.programInfo,
+          clearable: true,
+          onSelected: (v) => onChanged(d.copyWith(program: v?.id ?? '')),
+        ),
+        const SizedBox(height: 16),
+        _field(
+          'cohort$gen',
+          '기수 (숫자)',
+          d.cohort == 0 ? '' : '${d.cohort}',
+          (v) => onChanged(d.copyWith(cohort: (int.tryParse(v.trim()) ?? 0).clamp(0, 9999))),
+          hint: '예: 25',
+          keyboard: TextInputType.number,
+        ),
+        MutedText(
+          d.groupTitle.isEmpty ? '반 목록에서 과정·기수로 묶여 보여요.' : '반 목록에서 "${d.groupTitle}"로 묶여 보여요.',
+          style: const TextStyle(fontSize: 13),
+        ),
+        const SizedBox(height: 16),
         _field(
           'term$gen',
-          '기수·학기',
+          '기수·학기 글 (과정을 안 고를 때만)',
           d.term,
           (v) => onChanged(d.copyWith(term: v)),
           hint: '예: 22기 2학기',
@@ -249,7 +270,7 @@ class _BasicSection extends StatelessWidget {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('반 목록에 보이기'),
-          subtitle: const Text('끄면 사람들이 이 반을 고를 수 없어요'),
+          subtitle: const Text('끄면 사람들이 이 반을 고를 수 없어요. 다음 학기 반은 새 학기를 시작할 때 저절로 켜져요.'),
           value: d.visible,
           onChanged: (v) => onChanged(d.copyWith(visible: v)),
         ),
@@ -311,6 +332,22 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
 
   void _setWeek(int i, WeekInfo w, {bool regenerate = false}) =>
       widget.onChanged(d.copyWith(weeks: [...d.weeks]..[i] = w), regenerate: regenerate);
+
+  /// 1주 날짜를 고르면, 날짜가 비어 있는 뒤 주들은 7일씩 바로 채워요(이미 넣은 날짜는 그대로).
+  void _setFirstDate(String v) {
+    final first = tryParseYmd(v);
+    setState(() => _first = v);
+    if (first == null || d.weeks.isEmpty) return;
+    final weeks = [
+      for (var i = 0; i < d.weeks.length; i++)
+        i == 0
+            ? d.weeks[0].copyWith(date: v)
+            : d.weeks[i].date.isEmpty
+            ? d.weeks[i].copyWith(date: ymd(addDays(first, i * 7)))
+            : d.weeks[i],
+    ];
+    widget.onChanged(d.copyWith(weeks: weeks), regenerate: true);
+  }
 
   void _setExtra(int i, ExtraRow e) => widget.onChanged(d.copyWith(extras: [...d.extras]..[i] = e));
 
@@ -384,7 +421,13 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _DateButton(value: _first, empty: '1주 날짜', onPicked: (v) => setState(() => _first = v)),
+                  _DateButton(
+                    value: _first,
+                    empty: '1주 날짜',
+                    // 아직 날짜가 하나도 없으면 고르자마자 채워요
+                    onPicked: (v) =>
+                        d.classDates.every((x) => x == null) ? _setFirstDate(v) : setState(() => _first = v),
+                  ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -431,7 +474,7 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
                     Flexible(
                       child: _DateButton(
                         value: d.weeks[i].date,
-                        onPicked: (v) => _setWeek(i, d.weeks[i].copyWith(date: v)),
+                        onPicked: (v) => i == 0 ? _setFirstDate(v) : _setWeek(i, d.weeks[i].copyWith(date: v)),
                       ),
                     ),
                     const Spacer(),

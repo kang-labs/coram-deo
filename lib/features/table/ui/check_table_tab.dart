@@ -119,7 +119,9 @@ class _GridView extends ConsumerWidget {
       MediaQuery.textScalerOf(context),
       DefaultTextStyle.of(context).style, // 화면 글꼴과 같은 글꼴로 재요
     );
+    final readOnly = ref.watch(recordReadOnlyProvider);
     void open(int i) {
+      if (readOnly) return;
       ref.read(pickedWeekProvider.notifier).state = i;
       ref.read(homeTabProvider.notifier).state = HomeTab.week;
     }

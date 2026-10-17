@@ -5,6 +5,7 @@ import '../../../app/layout.dart';
 import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
 import '../../home/logic/home_providers.dart';
+import '../../record/logic/record_providers.dart';
 import '../../week/logic/week_providers.dart';
 import '../../week/ui/week_range_text.dart';
 import 'big_value.dart';
@@ -42,6 +43,7 @@ class _WeekPagesViewState extends ConsumerState<WeekPagesView> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final weeks = widget.course.weeks;
+    final readOnly = ref.watch(recordReadOnlyProvider);
     final page = _page.clamp(0, weeks.length - 1);
     final week = weeks[page];
     return Column(
@@ -82,7 +84,8 @@ class _WeekPagesViewState extends ConsumerState<WeekPagesView> {
             controller: _controller,
             itemCount: weeks.length,
             onPageChanged: (i) => setState(() => _page = i),
-            itemBuilder: (context, i) => _WeekPage(course: widget.course, index: i, onEdit: () => _edit(i)),
+            itemBuilder: (context, i) =>
+                _WeekPage(course: widget.course, index: i, onEdit: readOnly ? null : () => _edit(i)),
           ),
         ),
       ],
@@ -96,7 +99,9 @@ class _WeekPage extends StatelessWidget {
 
   final Course course;
   final int index;
-  final VoidCallback onEdit;
+
+  /// null이면(지난 출석부) 체크하러 가기 버튼을 숨겨요
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -135,11 +140,12 @@ class _WeekPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: onEdit,
-          icon: const Icon(Icons.edit_rounded),
-          label: Text('${index + 1}주차 체크하러 가기'),
-        ),
+        if (onEdit != null)
+          OutlinedButton.icon(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_rounded),
+            label: Text('${index + 1}주차 체크하러 가기'),
+          ),
       ],
     );
   }

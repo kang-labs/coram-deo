@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/course/logic/course_providers.dart';
 import '../features/course/ui/course_picker_screen.dart';
 import '../features/home/ui/home_shell.dart';
 import '../features/record/logic/record_providers.dart';
@@ -39,6 +40,10 @@ class RootGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 관리자가 새 학기를 시작하면 반 고르기부터 다시 (하던 반은 지난 출석부로)
+    ref.listen(selectedCourseOutdatedProvider, (_, outdated) {
+      if (outdated) ref.read(selectedCourseIdProvider.notifier).clear();
+    });
     final hasCourse = ref.watch(selectedCourseIdProvider.select((id) => id != null));
     return hasCourse ? const HomeShell() : const CoursePickerScreen();
   }

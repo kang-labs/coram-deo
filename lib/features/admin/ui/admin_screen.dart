@@ -60,11 +60,14 @@ class AdminScreen extends ConsumerWidget {
 
   Future<void> _addCourse(BuildContext context, WidgetRef ref) async {
     final list = ref.read(allCoursesProvider).valueOrNull ?? const <Course>[];
+    // 지금 학기 반으로, 12주는 빈 날짜로 미리 만들어 둬요(1주 날짜를 넣으면 나머지가 7일씩 채워져요).
     final course = Course(
       id: ref.read(courseRepositoryProvider).newId(),
       name: '',
+      semester: ref.read(semesterProvider).valueOrNull ?? 0,
       order: _nextOrder(list),
       visible: false,
+      weeks: List.filled(defaultWeekCount, const WeekInfo(date: '')),
       items: defaultItems,
       guide: defaultGuide,
     );
@@ -136,7 +139,7 @@ class _CourseAdminList extends ConsumerWidget {
 
   String _label(_CourseAction a, Course c) => switch (a) {
     _CourseAction.edit => '편집',
-    _CourseAction.copy => '새 학기로 복사',
+    _CourseAction.copy => '다음 기수로 복사',
     _CourseAction.toggleVisible => c.visible ? '숨기기' : '보이기',
     _CourseAction.delete => '삭제',
   };
@@ -148,16 +151,11 @@ class _CourseAdminList extends ConsumerWidget {
         case _CourseAction.edit:
           await openCourseEditor(context, c);
         case _CourseAction.copy:
-          // 항목·기록요령·일정 내용은 그대로, 날짜만 비워서 새 반으로(숨김 상태).
-          // 편집 > 일정표에서 1주 날짜를 넣고 '7일씩 채우기'를 해야 저장할 수 있어요.
-          final copy = c.copyWith(
-            id: repo.newId(),
-            term: c.term.isEmpty ? '새 학기' : '${c.term} (새 학기)',
-            order: _nextOrder(all),
-            visible: false,
-            weeks: [for (final w in c.weeks) w.copyWith(date: '')],
-            extras: [for (final e in c.extras) e.copyWith(date: '')],
-          );
+          // 항목·기록요령·일정 내용은 그대로, 기수 +1, 날짜만 비워서 다음 학기 반으로(숨김 상태).
+          // 편집 > 일정표에서 1주 날짜를 넣으면 나머지 주가 7일씩 채워져요.
+          // 다음 학기 = 지금 학기 + 1 (다음 학기 반을 또 복사해도 같은 학기로)
+          final current = ref.read(semesterProvider).valueOrNull ?? c.semester;
+          final copy = nextSemesterCopy(c, id: repo.newId(), semester: current + 1);
           await openCourseEditor(context, copy, isNew: true);
         case _CourseAction.toggleVisible:
           await _queued(context, repo.setVisible(c.id, !c.visible));
@@ -180,67 +178,194 @@ class _CourseAdminList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final courses = ref.watch(allCoursesProvider);
+    // 학기 번호를 서버에서 확인하기 전에는 학기 넘기기를 막아요(모르는 값으로 넘기면 학기가 거꾸로 갈 수 있어요)
+    final known = ref.watch(semesterProvider).valueOrNull;
+    final semester = known ?? 0;
     return courses.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => EmptyState(icon: Icons.cloud_off_rounded, title: '반 목록을 못 불러왔어요', message: '$e'),
-      data: (list) => list.isEmpty
-          ? const EmptyState(icon: Icons.school_rounded, title: '아직 반이 없어요', message: '아래 버튼으로 반을 추가해 주세요.')
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 96),
-              itemCount: list.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, i) {
-                final c = list[i];
-                return Opacity(
-                  opacity: c.visible ? 1 : 0.6,
-                  child: SoftCard(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
-                    onTap: () => openCourseEditor(context, c),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      c.name.isEmpty ? '(이름 없음)' : c.name,
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                                    ),
-                                  ),
-                                  if (!c.visible) ...[
-                                    const SizedBox(width: 6),
-                                    const TinyBadge('숨김', tone: Tone.neutral),
-                                  ],
-                                ],
-                              ),
-                              MutedText(
-                                [
-                                  if (c.term.isNotEmpty) c.term,
-                                  c.scheduleLabel,
-                                  '${c.weeks.length}주',
-                                  '순서 ${c.order}',
-                                ].join(' · '),
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuButton<_CourseAction>(
-                          tooltip: '더 보기',
-                          onSelected: (a) => _run(context, ref, a, c, list),
-                          itemBuilder: (_) => [
-                            for (final a in _CourseAction.values) PopupMenuItem(value: a, child: Text(_label(a, c))),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+      data: (list) {
+        final next = [
+          for (final c in list)
+            if (c.semester > semester) c,
+        ];
+        final now = [
+          for (final c in list)
+            if (c.semester == semester) c,
+        ];
+        final past = [
+          for (final c in list)
+            if (c.semester < semester) c,
+        ];
+        Widget card(Course c) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _AdminCourseCard(course: c, onAction: (a) => _run(context, ref, a, c, list), labelOf: _label),
+        );
+        Widget header(String text) => Padding(
+          padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+          child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        );
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 96),
+          children: [
+            if (known != null)
+              _SemesterCard(semester: semester, current: now, next: next, all: list)
+            else
+              const MutedText('학기 정보를 확인하는 중이에요. 인터넷 연결을 확인해 주세요.'),
+            if (next.isNotEmpty) ...[header('다음 학기 (준비 중, 사람들에게 아직 안 보여요)'), for (final c in next) card(c)],
+            header('지금 학기'),
+            if (now.isEmpty) const MutedText('지금 학기 반이 없어요. 아래 버튼으로 반을 추가해 주세요.') else for (final c in now) card(c),
+            if (past.isNotEmpty) ...[header('지난 학기'), for (final c in past) card(c)],
+          ],
+        );
+      },
     );
+  }
+}
+
+/// 반 한 줄 (이름, 과정·기수, 요일, 주 수, 메뉴)
+class _AdminCourseCard extends StatelessWidget {
+  const _AdminCourseCard({required this.course, required this.onAction, required this.labelOf});
+
+  final Course course;
+  final ValueChanged<_CourseAction> onAction;
+  final String Function(_CourseAction, Course) labelOf;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = course;
+    return Opacity(
+      opacity: c.visible ? 1 : 0.6,
+      child: SoftCard(
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+        onTap: () => openCourseEditor(context, c),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          c.name.isEmpty ? '(이름 없음)' : c.name,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      if (!c.visible) ...[const SizedBox(width: 6), const TinyBadge('숨김', tone: Tone.neutral)],
+                    ],
+                  ),
+                  MutedText(
+                    [
+                      if (c.groupTitle.isNotEmpty) c.groupTitle,
+                      c.scheduleLabel,
+                      '${c.weeks.length}주',
+                      '순서 ${c.order}',
+                    ].join(' · '),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuButton<_CourseAction>(
+              tooltip: '더 보기',
+              onSelected: onAction,
+              itemBuilder: (_) => [
+                for (final a in _CourseAction.values) PopupMenuItem(value: a, child: Text(labelOf(a, c))),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 학기 넘기기: 다음 학기 반이 없으면 '다음 학기 준비하기', 있으면 '새 학기 시작하기'
+class _SemesterCard extends ConsumerWidget {
+  const _SemesterCard({required this.semester, required this.current, required this.next, required this.all});
+
+  final int semester;
+  final List<Course> current;
+  final List<Course> next;
+  final List<Course> all;
+
+  Future<void> _prepare(BuildContext context, WidgetRef ref) async {
+    final ok = await showConfirmDialog(
+      context,
+      title: '다음 학기 반을 만들까요?',
+      body:
+          '지금 학기 반 ${current.length}개를 기수 +1로 복사해요. 일정 내용은 그대로 두고 날짜만 비워요.\n'
+          '사람들에게는 새 학기를 시작할 때까지 안 보여요. 반마다 1주 날짜를 넣어 주세요.',
+      ok: '만들기',
+    );
+    if (!ok || !context.mounted) return;
+    await _guard(
+      context,
+      () => _queued(context, ref.read(courseRepositoryProvider).prepareNextSemester(current, semester + 1)),
+    );
+  }
+
+  Future<void> _start(BuildContext context, WidgetRef ref) async {
+    final undated = [
+      for (final c in next)
+        if (c.classDates.every((d) => d == null)) c.name,
+    ];
+    final ok = await showConfirmDialog(
+      context,
+      title: '새 학기를 시작할까요?',
+      body:
+          '다음 학기 반 ${next.length}개가 열리고 지금 반은 모두 숨겨져요.\n'
+          '사람들은 앱을 열면 새 학기 반 고르기부터 하고, 하던 기록은 덜 끝났어도 설정 > 지난 출석부로 옮겨져요. 되돌릴 수 없어요.'
+          '${undated.isEmpty ? '' : '\n\n아직 날짜가 없는 반: ${undated.join(', ')}'}',
+      ok: '시작하기',
+    );
+    if (!ok || !context.mounted) return;
+    await _guard(context, () => _queued(context, ref.read(courseRepositoryProvider).startSemester(all, semester + 1)));
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SoftCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const CardHeader(icon: Icons.event_repeat_rounded, title: '학기 넘기기', tone: Tone.warm),
+          const SizedBox(height: 8),
+          MutedText(
+            next.isEmpty
+                ? '지금은 $semester학기예요. 먼저 다음 학기 반을 만들고 날짜를 넣은 뒤 새 학기를 시작해요.'
+                : "다음 학기 반 날짜를 다 넣었으면 새 학기를 시작해요. 빠진 반은 반 메뉴의 '다음 기수로 복사'로 더해요.",
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          if (next.isEmpty)
+            OutlinedButton.icon(
+              onPressed: current.isEmpty ? null : () => _prepare(context, ref),
+              icon: const Icon(Icons.copy_all_rounded),
+              label: const Text('다음 학기 준비하기'),
+            )
+          else
+            FilledButton.icon(
+              onPressed: () => _start(context, ref),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('새 학기 시작하기'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 권한·인터넷 오류를 안내로 바꿔요
+Future<void> _guard(BuildContext context, Future<void> Function() action) async {
+  try {
+    await action();
+  } on FirebaseException catch (e) {
+    if (context.mounted) {
+      await showInfoDialog(context, title: '저장하지 못했어요', body: '권한이나 인터넷 연결을 확인해 주세요.\n(${e.code})');
+    }
   }
 }

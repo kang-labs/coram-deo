@@ -2,7 +2,7 @@ rules_version = '2';
 
 // 하나님앞에서: 반(courses)은 누구나 읽고, 관리자 이메일(구글 로그인, 이메일 확인됨)만 써요.
 // 관리자 목록은 lib/core/admin.dart의 adminEmails와 같게 유지하세요.
-// 개인 체크 기록은 폰에만 저장하므로 서버에는 courses만 있어요.
+// 개인 체크 기록은 폰에만 저장하므로 서버에는 courses와 config(학기 번호)만 있어요.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -26,7 +26,24 @@ service cloud.firestore {
         && d.extras is list && d.extras.size() <= 30
         && d.items is list && d.items.size() > 0 && d.items.size() <= 60
         && d.guide is string && d.guide.size() <= 20000
+        // 과정·기수·학기는 나중에 더한 필드라 없어도 돼요(예전 앱이 저장한 반)
+        && (!('program' in d) || (d.program is string && d.program.size() <= 20))
+        && (!('cohort' in d) || (d.cohort is int && d.cohort >= 0 && d.cohort <= 9999))
+        && (!('semester' in d) || d.semester is int)
+        // 한 번 생긴 과정·기수·학기는 지우지 못해요(예전 앱이 저장하며 지우는 것 막기)
+        && (resource == null || !('semester' in resource.data) || 'semester' in d)
+        && (resource == null || !('program' in resource.data) || 'program' in d)
+        && (resource == null || !('cohort' in resource.data) || 'cohort' in d)
         && (!('updatedAt' in d) || d.updatedAt is timestamp);
+    }
+
+    // 앱 설정: semester = 지금 학기 번호 (관리자가 '새 학기 시작하기'로 올려요)
+    match /config/{docId} {
+      allow read: if true;
+      // 학기는 1씩만 올라가요(처음엔 1). 잘못 눌러 거꾸로 가거나 건너뛰지 않게.
+      allow create, update: if isAdmin() && docId == 'app'
+        && request.resource.data.semester is int
+        && request.resource.data.semester == (resource == null ? 1 : resource.data.semester + 1);
     }
 
     match /courses/{courseId} {

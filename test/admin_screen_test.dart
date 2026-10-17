@@ -40,15 +40,17 @@ void main() {
       _app([
         authStateProvider.overrideWith((ref) => Stream<User?>.value(_FakeUser())),
         allCoursesProvider.overrideWith((ref) => Stream.value([fakeCourse(), hidden])),
+        semesterProvider.overrideWith((ref) => Stream.value(0)),
       ]),
     );
     await tester.pumpAndSettle();
     expect(find.text('반 추가'), findsOneWidget);
+    expect(find.text('다음 학기 준비하기'), findsOneWidget);
     expect(find.text('제자대학2학기'), findsOneWidget);
     expect(find.text('숨김'), findsOneWidget);
     await tester.tap(find.byTooltip('더 보기').last);
     await tester.pumpAndSettle();
     expect(find.text('보이기'), findsOneWidget);
-    expect(find.text('새 학기로 복사'), findsOneWidget);
+    expect(find.text('다음 기수로 복사'), findsOneWidget);
   });
 }

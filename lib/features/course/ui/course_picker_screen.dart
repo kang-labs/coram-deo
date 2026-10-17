@@ -98,39 +98,80 @@ class CourseListSliver extends ConsumerWidget {
           ? fill(const EmptyState(icon: Icons.school_rounded, title: '아직 열린 반이 없어요', message: '관리자가 반을 등록하면 여기에 보여요.'))
           : SliverPadding(
               padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 0, AppLayout.sidePadding, 24),
-              sliver: SliverList.separated(
-                itemCount: list.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, i) {
-                  final c = list[i];
-                  final on = c.id == selectedId;
-                  return SoftCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                    borderColor: on ? context.palette.primary : null,
-                    onTap: () => onPicked(c),
-                    child: Row(
-                      children: [
-                        IconBubble(icon: Icons.school_rounded, tone: on ? Tone.primary : Tone.accent, size: 40),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(c.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                              MutedText(
-                                [if (c.term.isNotEmpty) c.term, '${c.scheduleLabel} 수업'].join(' · '),
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (on) Icon(Icons.check_rounded, color: context.palette.primary),
-                      ],
-                    ),
-                  );
-                },
+              sliver: SliverList.list(
+                children: [
+                  for (final (title, group) in groupCourses(list)) ...[
+                    if (title.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                        child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                      ),
+                    for (final c in group)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _CourseCard(course: c, selected: c.id == selectedId, onTap: () => onPicked(c)),
+                      ),
+                  ],
+                ],
               ),
             ),
+    );
+  }
+}
+
+/// 반을 '25기 양육훈련'처럼 묶어요. 과정 순서(양육 → 제자학교 → 제자대학1 → 2) → 기수 큰 것 → 반 순서.
+/// 과정을 모르는 반은 맨 뒤에 기수·학기 글로 묶어요.
+List<(String, List<Course>)> groupCourses(List<Course> list) {
+  int programRank(Course c) => c.programInfo?.index ?? Program.values.length;
+  final sorted = [...list]
+    ..sort((a, b) {
+      final p = programRank(a).compareTo(programRank(b));
+      if (p != 0) return p;
+      final k = b.cohort.compareTo(a.cohort);
+      return k != 0 ? k : a.order.compareTo(b.order);
+    });
+  final groups = <(String, List<Course>)>[];
+  for (final c in sorted) {
+    if (groups.isNotEmpty && groups.last.$1 == c.groupTitle) {
+      groups.last.$2.add(c);
+    } else {
+      groups.add((c.groupTitle, [c]));
+    }
+  }
+  return groups;
+}
+
+/// 반 하나 (이름, 요일·시간)
+class _CourseCard extends StatelessWidget {
+  const _CourseCard({required this.course, required this.selected, required this.onTap});
+
+  final Course course;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = course;
+    return SoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      borderColor: selected ? context.palette.primary : null,
+      onTap: onTap,
+      child: Row(
+        children: [
+          IconBubble(icon: Icons.school_rounded, tone: selected ? Tone.primary : Tone.accent, size: 40),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(c.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                MutedText('${c.scheduleLabel} 수업', style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          if (selected) Icon(Icons.check_rounded, color: context.palette.primary),
+        ],
+      ),
     );
   }
 }

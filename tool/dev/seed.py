@@ -6,6 +6,7 @@
     python tool/dev/seed.py                    # 7개 반 중 서버에 없는 반만 넣기 (있는 반은 건너뜀)
     python tool/dev/seed.py --force            # 있는 반도 통째로 덮어쓰기 (앱에서 고친 내용이 사라져요!)
     python tool/dev/seed.py --only jedae2      # 한 반만
+    python tool/dev/seed.py --set-cohorts      # 있는 반에 과정·기수만 더하기 (다른 내용은 그대로)
 
 인증: ~/.config/configstore/firebase-tools.json 의 tokens.access_token (firebase CLI 로그인 계정).
 관리자(프로젝트 소유자) 권한의 REST 호출이라 보안 규칙과 상관없이 써져요.
@@ -113,6 +114,19 @@ def verses(refs: str) -> list[dict]:
     return [{"ref": r.strip(), "text": VERSE_TEXT.get(r.strip(), "")} for r in refs.split("\n") if r.strip()]
 
 
+# 반 id 앞부분 → (과정 id, 기수). 2026 가을 학기 기준 (lib/core/models/program.dart 와 같은 id).
+PROGRAM_COHORT = {
+    "yangyuk": ("yangyuk", 25),
+    "jejahak": ("jejahak", 24),
+    "jedae1": ("jedae1", 23),
+    "jedae2": ("jedae2", 22),
+}
+
+
+def program_cohort(cid: str) -> tuple[str, int]:
+    return PROGRAM_COHORT[cid.split("_")[0]]
+
+
 def build_courses() -> dict[str, dict]:
     out = {}
     for order, (cid, name, weekday, time) in enumerate(COURSES, start=1):
@@ -127,6 +141,9 @@ def build_courses() -> dict[str, dict]:
             "extras": [],
             "items": DEFAULT_ITEMS,
             "guide": DEFAULT_GUIDE,
+            "program": program_cohort(cid)[0],
+            "cohort": program_cohort(cid)[1],
+            "semester": 0,
         }
         if cid == "jedae2":
             doc["term"] = "22기 2학기"
@@ -196,6 +213,24 @@ def put(cid: str, doc: dict, token: str) -> None:
     print(f"저장했어요: courses/{cid} ({doc['name']}, {len(doc['weeks'])}주)")
 
 
+def patch_fields(cid: str, fields: dict, token: str) -> None:
+    """문서의 몇 필드만 바꾸기 (updateMask). 없는 문서면 실패해요."""
+    mask = "&".join(f"updateMask.fieldPaths={k}" for k in fields)
+    body = json.dumps({"fields": {k: to_value(v) for k, v in fields.items()}}).encode("utf-8")
+    req = urllib.request.Request(
+        f"{BASE}/courses/{cid}?{mask}&currentDocument.exists=true",
+        data=body,
+        method="PATCH",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json; charset=utf-8"},
+    )
+    try:
+        with urllib.request.urlopen(req) as res:
+            res.read()
+    except urllib.error.HTTPError as e:
+        sys.exit(f"{cid} 고치기 실패 ({e.code}): {e.read().decode('utf-8', 'replace')}")
+    print(f"고쳤어요: courses/{cid} {fields}")
+
+
 def main() -> None:
     # 윈도우 콘솔(cp949)에서도 한글·− 기호가 깨지지 않게
     sys.stdout.reconfigure(encoding="utf-8")
@@ -203,6 +238,7 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="보내지 않고 JSON만 출력")
     ap.add_argument("--only", metavar="ID", help="이 id 반만 (예: jedae2)")
     ap.add_argument("--force", action="store_true", help="이미 있는 반도 통째로 덮어쓰기 (관리자가 앱에서 고친 내용이 사라져요!)")
+    ap.add_argument("--set-cohorts", action="store_true", help="있는 반에 과정·기수만 더하기")
     args = ap.parse_args()
 
     courses = build_courses()
@@ -210,6 +246,16 @@ def main() -> None:
         if args.only not in courses:
             sys.exit(f"없는 id예요: {args.only} (가능: {', '.join(courses)})")
         courses = {args.only: courses[args.only]}
+
+    if args.set_cohorts:
+        token = access_token()
+        for cid in courses:
+            program, cohort = program_cohort(cid)
+            if args.dry_run:
+                print(cid, program, cohort)
+            else:
+                patch_fields(cid, {"program": program, "cohort": cohort}, token)
+        return
 
     if args.dry_run:
         print(json.dumps(courses, ensure_ascii=False, indent=2))

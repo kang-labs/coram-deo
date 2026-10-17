@@ -94,7 +94,7 @@ void main() {
 
     await tester.tap(find.text('열기'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, '기수·학기'), '23기');
+    await tester.enterText(find.widgetWithText(TextFormField, '기수 (숫자)'), '23');
     await tester.pump(); // 다시 그려져야 PopScope가 '고침' 상태를 알아요
     nav.maybePop();
     await tester.pumpAndSettle();
@@ -140,12 +140,12 @@ void main() {
   testWidgets('인터넷이 없으면 서버 확인을 기다리지 않고 닫으며 안내', (tester) async {
     final repo = await _open(tester, fakeCourse());
     repo.offline = true;
-    await tester.enterText(find.widgetWithText(TextFormField, '기수·학기'), '23기');
+    await tester.enterText(find.widgetWithText(TextFormField, '기수 (숫자)'), '23');
     await tester.pump();
     await tester.tap(find.text('저장'));
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
-    expect(repo.saved.single.term, '23기');
+    expect(repo.saved.single.cohort, 23);
     expect(find.byType(CourseEditorScreen), findsNothing);
     expect(find.text('폰에 저장했어요. 인터넷이 연결되면 올라가요.'), findsOneWidget);
   });

@@ -18,7 +18,17 @@ class SelectedCourseController extends Notifier<String?> {
     state = id;
     await ref.read(localStoreProvider).setCourseId(id);
   }
+
+  /// 새 학기가 시작돼서 반 고르기부터 다시. 하던 반 기록·사본은 그대로 남아 지난 출석부로 가요.
+  Future<void> clear() async {
+    if (state == null) return;
+    state = null;
+    await ref.read(localStoreProvider).clearCourseId();
+  }
 }
+
+/// 지난 출석부처럼 보기만 하는 화면이면 true (체크하러 가기 버튼·줄 누르기를 막아요)
+final recordReadOnlyProvider = Provider<bool>((ref) => false);
 
 /// 내 이름 (체크표 위에 표시)
 final myNameProvider = NotifierProvider<MyNameController, String>(MyNameController.new);
