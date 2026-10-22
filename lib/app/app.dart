@@ -8,6 +8,7 @@ import '../features/course/ui/course_picker_screen.dart';
 import '../features/home/ui/home_shell.dart';
 import '../features/record/logic/record_providers.dart';
 import '../features/theme/logic/theme_providers.dart';
+import '../features/update/ui/update_prompt.dart';
 import 'layout.dart';
 import 'theme.dart';
 
@@ -29,7 +30,8 @@ class CoramDeoApp extends ConsumerWidget {
         value: AppTheme.overlayStyle(themeId.palette),
         child: _WidthFrame(background: themeId.palette.background, child: child!),
       ),
-      home: const RootGate(),
+      // 앱을 열 때 한 번 Play 새 버전 확인 (Play에서 받은 앱만)
+      home: const UpdatePrompt(child: RootGate()),
     );
   }
 }

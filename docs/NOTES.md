@@ -126,4 +126,5 @@
 - 업로드 키: `Documents/Security/Android_upload_key/coram-deo-upload.jks`(alias upload, PKCS12, ~2054), 비밀번호 `coram-deo-key.properties`(storePassword·keyPassword). git·claude_data·Project 밖.
 - `android/app/build.gradle.kts`: 환경 변수 `CORAM_UPLOAD_SIGN=1`이면 업로드 키로 release 서명(키 없으면 GradleException), 아니면 debug. 평소 APK(GitHub·기기)는 debug라 기존 설치 위에 덮어 설치 가능.
 - Firebase Android 앱 SHA-1: debug `f9:82:33…d2:05`, 업로드 `67:48:F2…93:BF`. Play 앱 서명 키 SHA-1은 첫 업로드 뒤 추가할 것.
-- 남은 결정: 개인/조직 계정, 기록 내보내기·가져오기 먼저 할지, GitHub 배포 유지 여부(유지하려면 내 키를 앱 서명 키로).
+- 결정(2026-10-22): 개인 계정(비공개 테스트 12명·14일), 기록 내보내기 없음, Play 정식 공개 뒤 GitHub 배포 정리, 앱 서명 키는 Google 관리(기본).
+- 인앱 업데이트: `in_app_update` 5.0.0. `features/update/data/play_update.dart`(`PlayUpdate.hasUpdate`: 안드로이드만, 새 버전 있고 즉시 업데이트 가능할 때, 실패는 false) + `ui/update_prompt.dart`(`UpdatePrompt`가 `RootGate`를 감싸 앱 열 때 한 번 확인 → 공통 확인 창 '업데이트/나중에' → `performImmediateUpdate`). Play에서 받은 앱만 동작, GitHub APK·웹은 조용히 건너뜀(에뮬레이터에서 확인). 실제 업데이트 흐름은 Play 테스트 트랙에 두 버전이 올라간 뒤에만 확인 가능.
