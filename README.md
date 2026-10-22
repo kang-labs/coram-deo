@@ -52,7 +52,7 @@ flutter build apk --release --split-per-abi
 # → build/app/outputs/flutter-apk/app-arm64-v8a-release.apk (갤럭시용)
 ```
 
-release도 지금은 debug 키로 서명해요(`android/app/build.gradle.kts`).
+release도 평소에는 debug 키로 서명해요(`android/app/build.gradle.kts`). Play 스토어용 AAB만 업로드 키로 서명해요(아래).
 
 ### 새 버전 올리기 (GitHub Releases)
 
@@ -66,6 +66,17 @@ gh release create v1.0.1 coram-deo-v1.0.1.apk --title "하나님앞에서 v1.0.1
 ```
 
 GitHub는 첨부 파일 이름의 한글을 지우므로 파일 이름은 영문으로 해요.
+
+### Play 스토어용 AAB (업로드 키)
+
+업로드 키는 git 밖 `Documents/Security/Android_upload_key/`에 있어요(`coram-deo-upload.jks`, 비밀번호는 `coram-deo-key.properties`). 환경 변수를 켤 때만 이 키로 서명하고, 키가 없으면 빌드가 멈춰요.
+
+```powershell
+$env:CORAM_UPLOAD_SIGN="1"; flutter build appbundle --release; Remove-Item Env:CORAM_UPLOAD_SIGN
+# → build/app/outputs/bundle/release/app-release.aab
+```
+
+- 업로드 키 SHA-1 `67:48:F2:AE:…:93:BF`는 Firebase에 등록했어요. Play 앱 서명 키 SHA-1도 첫 업로드 뒤 Play Console(앱 무결성)에서 복사해 Firebase에 더해야 관리자 로그인이 돼요.
 
 ### 웹앱 올리기 (Firebase Hosting)
 

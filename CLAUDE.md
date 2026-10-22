@@ -26,5 +26,6 @@
 
 `flutter build apk --release --split-per-abi` → `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`를 SendUserFile로 보냄. release도 debug 키 서명.
 
+Play 스토어: `CORAM_UPLOAD_SIGN=1`일 때만 업로드 키(`../../../Security/Android_upload_key`, git 밖)로 AAB 서명. 평소 빌드는 debug 키 그대로(README 'Play 스토어용 AAB').
 공개 배포: GitHub `kang-labs/coram-deo` Releases에 이 PC에서 빌드한 통합 apk(`coram-deo-vX.Y.Z.apk`)를 `gh release create`로 올린다(README '새 버전 올리기'). CI 빌드 금지 — 서명 키가 달라 관리자 로그인·덮어 설치가 깨짐.
 아이폰용 웹앱: `flutter build web --release` → `firebase deploy --only hosting` (https://coram-deo-biblekang.web.app). 웹 전용 코드는 `lib/core/web_env.dart`(조건부 import)로만.

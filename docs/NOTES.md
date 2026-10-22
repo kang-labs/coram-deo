@@ -120,3 +120,10 @@
 - 서버 기존 7반 과정·기수: `python tool/dev/seed.py --set-cohorts` (25 양육, 24 제자학교, 23 제자대학1, 22 제자대학2).
 - 예전 앱(v1.0.1 이하)은 학기를 몰라서 새 학기에 반이 풀리지 않음(반은 숨겨지니 목록엔 새 반만) — 업데이트하면 바로 풀림.
 - 검토(opus) 반영: 학기 모를 때 0으로 믿지 않기, 늦은 업데이트, 규칙. 남은 작은 점: 지난 출석부에서 주별/표 바꾸면 메인 체크표 보기도 같이 바뀜.
+
+## Play 스토어 준비 (2026-10-22)
+
+- 업로드 키: `Documents/Security/Android_upload_key/coram-deo-upload.jks`(alias upload, PKCS12, ~2054), 비밀번호 `coram-deo-key.properties`(storePassword·keyPassword). git·claude_data·Project 밖.
+- `android/app/build.gradle.kts`: 환경 변수 `CORAM_UPLOAD_SIGN=1`이면 업로드 키로 release 서명(키 없으면 GradleException), 아니면 debug. 평소 APK(GitHub·기기)는 debug라 기존 설치 위에 덮어 설치 가능.
+- Firebase Android 앱 SHA-1: debug `f9:82:33…d2:05`, 업로드 `67:48:F2…93:BF`. Play 앱 서명 키 SHA-1은 첫 업로드 뒤 추가할 것.
+- 남은 결정: 개인/조직 계정, 기록 내보내기·가져오기 먼저 할지, GitHub 배포 유지 여부(유지하려면 내 키를 앱 서명 키로).
