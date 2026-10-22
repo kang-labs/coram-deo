@@ -10,6 +10,7 @@ import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
 import '../../admin/ui/admin_screen.dart';
 import '../../archive/ui/past_books_screen.dart';
+import '../../backup/ui/backup_sheet.dart';
 import '../../course/logic/course_providers.dart';
 import '../../course/ui/course_picker_screen.dart';
 import '../../install/ui/install_guide.dart';
@@ -19,7 +20,7 @@ import '../../theme/logic/theme_providers.dart';
 /// 설정 한 줄 (아이콘, 제목, 설명, 누르면)
 typedef _SettingRow = ({IconData icon, Tone tone, String title, String subtitle, VoidCallback onTap});
 
-/// 설정: 반 바꾸기, 내 이름, 지난 출석부, 기록요령 보기, 테마, 관리자 모드
+/// 설정: 반 바꾸기, 내 이름, 지난 출석부, 기록 저장·불러오기, 기록요령 보기, 테마, 관리자 모드
 class SettingsTab extends ConsumerWidget {
   const SettingsTab({super.key, required this.course});
 
@@ -60,6 +61,13 @@ class SettingsTab extends ConsumerWidget {
         title: '지난 출석부',
         subtitle: pastCount == 0 ? '전에 들은 반의 체크표를 모아 봐요' : '$pastCount개 · 전에 들은 반의 체크표를 봐요',
         onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PastBooksScreen())),
+      ),
+      (
+        icon: Icons.save_alt_rounded,
+        tone: Tone.primary,
+        title: '기록 저장·불러오기',
+        subtitle: '폰을 바꾸거나 앱을 다시 깔 때 기록을 옮겨요',
+        onTap: () => showBackupSheet(context),
       ),
       (
         icon: Icons.description_rounded,

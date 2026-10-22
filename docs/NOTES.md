@@ -128,3 +128,10 @@
 - Firebase Android 앱 SHA-1: debug `f9:82:33…d2:05`, 업로드 `67:48:F2…93:BF`. Play 앱 서명 키 SHA-1은 첫 업로드 뒤 추가할 것.
 - 결정(2026-10-22): 개인 계정(비공개 테스트 12명·14일), 기록 내보내기 없음, Play 정식 공개 뒤 GitHub 배포 정리, 앱 서명 키는 Google 관리(기본).
 - 인앱 업데이트: `in_app_update` 5.0.0. `features/update/data/play_update.dart`(`PlayUpdate.hasUpdate`: 안드로이드만, 새 버전 있고 즉시 업데이트 가능할 때, 실패는 false) + `ui/update_prompt.dart`(`UpdatePrompt`가 `RootGate`를 감싸 앱 열 때 한 번 확인 → 공통 확인 창 '업데이트/나중에' → `performImmediateUpdate`). Play에서 받은 앱만 동작, GitHub APK·웹은 조용히 건너뜀(에뮬레이터에서 확인). 실제 업데이트 흐름은 Play 테스트 트랙에 두 버전이 올라간 뒤에만 확인 가능.
+
+## 기록 저장·불러오기 (2026-10-22)
+
+- 설정 > 기록 저장·불러오기 → `features/backup/ui/backup_sheet.dart`. 파일 창은 `file_picker` 13 (`BackupFiles.save`/`pick`, 테스트에서 바꿔 끼움).
+- 파일 `coram-deo-backup-YYYYMMDD.json`: `{app:'coram_deo', format:1, savedAt, name, courseId, records:{id: 기록 JSON}, snapshots:{id: 반 문서}}`. `Backup.parse`는 관대하게(다른 앱 파일·깨진 파일 null, 깨진 반은 건너뜀).
+- 불러오기: 파일에 든 반만 덮어씀, 다른 반은 그대로. 이름은 파일에 있을 때만, 고른 반은 폰에 없을 때만. 끝나면 selectedCourseId·myName·courseRecord·pastBooks provider 다시 읽음.
+- 용도: GitHub판(debug 서명) → Play판(서명 다름, 덮어 설치 불가)으로 옮길 때, 폰 바꿀 때, 아이폰 웹 ↔ 안드로이드.
