@@ -22,7 +22,7 @@ void showBackupSheet(BuildContext context) {
           const CardHeader(icon: Icons.save_alt_rounded, title: '기록 저장·불러오기', tone: Tone.primary),
           const SizedBox(height: 8),
           const MutedText(
-            '체크 기록은 이 폰에만 있어요. 폰을 바꾸거나 앱을 다시 깔기 전에 파일로 저장하고, 새 폰에서 불러오면 그대로 이어서 쓸 수 있어요.',
+            '체크 기록은 이 폰에 있어요(반장·총무가 보는 사본은 새 폰으로 다시 받아 올 수 없어요). 폰을 바꾸거나 앱을 다시 깔기 전에 파일로 저장하고, 새 폰에서 불러오면 그대로 이어서 쓸 수 있어요.',
             style: TextStyle(fontSize: 13, height: 1.5),
           ),
           const SizedBox(height: 16),

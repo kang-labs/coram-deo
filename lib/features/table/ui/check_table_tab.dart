@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,61 +7,15 @@ import '../../../app/widgets.dart';
 import '../../../core/dates.dart';
 import '../../../core/models/course.dart';
 import '../../home/logic/home_providers.dart';
-import '../../record/logic/part_display.dart';
 import '../../record/logic/record_providers.dart';
-import '../../record/ui/mark_glyph.dart';
 import '../../week/logic/week_providers.dart';
 import '../logic/table_view_provider.dart';
+import 'record_grid.dart';
+import 'table_image_export.dart';
 import 'week_pages_view.dart';
 
-/// 체크표 머리·칸 크기
-abstract final class _Size {
-  static const header = 76.0;
-  static const group = 44.0;
-  static const row = 46.0;
-  static const weekCol = 64.0;
-  static const minSingle = 52.0;
-  static const minPart = 44.0;
-  static const labelStyle = TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.2);
-  static const partStyle = TextStyle(fontSize: 11, fontWeight: FontWeight.w800, height: 1.2);
-}
-
-/// 띄어쓰기에서만 줄을 바꾼 머리 글자 ('필독서 읽기' → '필독서\n읽기'). 한글은 글자 사이에서도 줄이 바뀌어서 직접 나눠요.
-String _headerText(String label) => label.trim().split(RegExp(r'\s+')).join('\n');
-
-/// 머리 글자의 가장 긴 낱말 폭
-double _widestWord(String label, TextStyle style, TextScaler scaler) {
-  var w = 0.0;
-  for (final word in label.trim().split(RegExp(r'\s+'))) {
-    final tp = TextPainter(
-      text: TextSpan(text: word, style: style),
-      textDirection: TextDirection.ltr,
-      textScaler: scaler,
-      maxLines: 1,
-    )..layout();
-    w = math.max(w, tp.width);
-    tp.dispose();
-  }
-  return w;
-}
-
-/// 항목마다 칸 폭 (낱말이 잘리지 않을 만큼, 최소 폭 이상)
-List<List<double>> _columnWidths(List<ItemDef> items, TextScaler scaler, TextStyle base) => [
-  for (final item in items)
-    if (item.parts.length == 1)
-      [math.max(_Size.minSingle, _widestWord(item.label, base.merge(_Size.labelStyle), scaler) + 14)]
-    else
-      () {
-        final parts = [
-          for (final p in item.parts)
-            math.max(_Size.minPart, _widestWord(p.label, base.merge(_Size.partStyle), scaler) + 10),
-        ];
-        final need = _widestWord(item.label, base.merge(_Size.labelStyle), scaler) + 14;
-        final sum = parts.fold(0.0, (a, b) => a + b);
-        // 항목 이름이 더 넓으면 칸마다 고르게 늘려요
-        return sum >= need ? parts : [for (final w in parts) w + (need - sum) / parts.length];
-      }(),
-];
+/// 가로 폭이 이만큼 넘는 화면(가로로 눕힌 폰, 펼친 폴드)은 표를 한눈에 보게 줄여요
+const double _wideWidth = 600;
 
 /// 체크표 탭: 위에 '주별 | 표' 고르기(기기에 기억), 아래에 고른 보기.
 class CheckTableTab extends ConsumerWidget {
@@ -81,15 +33,18 @@ class CheckTableTab extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 4),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: SelectPills<TableView>(
-              options: SelectPills.simple({for (final v in TableView.values) v: v.label}),
-              selected: view,
-              onSelected: (v) {
-                if (v != null) ref.read(tableViewProvider.notifier).select(v);
-              },
-            ),
+          child: Row(
+            children: [
+              SelectPills<TableView>(
+                options: SelectPills.simple({for (final v in TableView.values) v: v.label}),
+                selected: view,
+                onSelected: (v) {
+                  if (v != null) ref.read(tableViewProvider.notifier).select(v);
+                },
+              ),
+              const Spacer(),
+              if (view == TableView.grid) _SaveImageButton(course: course),
+            ],
           ),
         ),
         Expanded(
@@ -103,148 +58,73 @@ class CheckTableTab extends ConsumerWidget {
   }
 }
 
-/// 표 보기: 종이와 같은 표(주차 × 항목). 첫 열(주차)은 고정, 나머지는 가로로 밀어 봐요.
-/// 주차 줄을 누르면 그 주 '이번 주' 화면으로 갑니다.
-class _GridView extends ConsumerWidget {
+/// 표 보기: 종이와 같은 표(주차 × 항목). 주차 줄을 누르면 그 주 '이번 주' 화면으로 갑니다.
+/// 세로 화면은 첫 열(주차)을 고정하고 가로로 밀어 보고, 가로로 넓은 화면은 한눈에 보이게 줄여요.
+class _GridView extends StatelessWidget {
   const _GridView({required this.course});
 
   final Course course;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.palette;
-    final todayIndex = ref.watch(todayWeekIndexProvider);
-    final widths = _columnWidths(
-      course.items,
-      MediaQuery.textScalerOf(context),
-      DefaultTextStyle.of(context).style, // 화면 글꼴과 같은 글꼴로 재요
-    );
-    final readOnly = ref.watch(recordReadOnlyProvider);
-    void open(int i) {
-      if (readOnly) return;
-      ref.read(pickedWeekProvider.notifier).state = i;
-      ref.read(homeTabProvider.notifier).state = HomeTab.week;
-    }
-
-    final border = BorderSide(color: p.line);
-    BoxDecoration cellBox({Color? color}) => BoxDecoration(
-      color: color,
-      border: Border(right: border, bottom: border),
-    );
-    Color rowColor(int i) => i == todayIndex ? p.primarySoft : p.surface;
-
-    Widget headerCell(String text, double width, double height, TextStyle style) => Container(
-      width: width,
-      height: height,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: cellBox(color: p.surfaceMuted),
-      // 글자 크기를 키운 폰이나 낱말이 많은 이름은 칸에 맞게 줄여요
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(_headerText(text), textAlign: TextAlign.center, softWrap: false, style: style),
-      ),
-    );
-
-    Widget rowWrap(int i, Widget child) => GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => open(i),
-      child: Opacity(opacity: course.weeks[i].off ? 0.45 : 1, child: child),
-    );
-
-    final weekColumn = Column(
-      children: [
-        headerCell('주차', _Size.weekCol, _Size.header, _Size.labelStyle),
-        for (var i = 0; i < course.weeks.length; i++)
-          rowWrap(
-            i,
-            Container(
-              width: _Size.weekCol,
-              height: _Size.row,
-              alignment: Alignment.center,
-              decoration: cellBox(color: rowColor(i)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('${i + 1}주', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-                  Text(
-                    course.weeks[i].off ? '휴강' : _md(course.weeks[i]),
-                    style: TextStyle(fontSize: 10.5, color: p.inkSoft, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-
-    Widget itemHeader(ItemDef item, List<double> w) {
-      if (item.parts.length == 1) return headerCell(item.label, w.single, _Size.header, _Size.labelStyle);
-      return Column(
-        children: [
-          headerCell(item.label, w.fold(0.0, (a, b) => a + b), _Size.group, _Size.labelStyle),
-          Row(
-            children: [
-              for (var k = 0; k < item.parts.length; k++)
-                headerCell(item.parts[k].label, w[k], _Size.header - _Size.group, _Size.partStyle),
-            ],
-          ),
-        ],
-      );
-    }
-
-    final grid = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [for (var j = 0; j < course.items.length; j++) itemHeader(course.items[j], widths[j])]),
-        for (var i = 0; i < course.weeks.length; i++)
-          rowWrap(
-            i,
-            Row(
-              children: [
-                for (var j = 0; j < course.items.length; j++)
-                  for (var k = 0; k < course.items[j].parts.length; k++)
-                    Container(
-                      width: widths[j][k],
-                      height: _Size.row,
-                      alignment: Alignment.center,
-                      decoration: cellBox(color: rowColor(i)),
-                      child: _Cell(
-                        week: i + 1,
-                        itemId: course.items[j].id,
-                        partId: course.items[j].parts[k].id,
-                        type: course.items[j].parts[k].type,
-                      ),
-                    ),
-              ],
-            ),
-          ),
-      ],
-    );
-
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final wide = size.width > size.height || size.width >= _wideWidth;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 24),
+      padding: EdgeInsets.fromLTRB(wide ? 8 : AppLayout.sidePadding, 8, wide ? 8 : AppLayout.sidePadding, 24),
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(left: border, top: border),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                weekColumn,
-                Expanded(
-                  child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: grid),
-                ),
-              ],
-            ),
-          ),
+        WeekRecordGrid(
+          course: course,
+          mode: wide ? GridLayoutMode.fit : GridLayoutMode.scroll,
+          density: wide ? GridDensity.compact : GridDensity.regular,
         ),
         const SizedBox(height: 12),
-        const MutedText('표를 옆으로 밀어 모든 항목을 볼 수 있어요. 주차 줄을 누르면 그 주 체크 화면으로 가요.', style: TextStyle(fontSize: 13)),
+        MutedText(
+          wide ? '주차 줄을 누르면 그 주 체크 화면으로 가요.' : '표를 옆으로 밀어 모든 항목을 볼 수 있어요. 주차 줄을 누르면 그 주 체크 화면으로 가요.',
+          style: const TextStyle(fontSize: 13),
+        ),
       ],
+    );
+  }
+}
+
+/// 내 체크표 표: 줄 = 주차, 칸 값은 내 기록([courseRecordProvider])에서 칸마다 읽어요.
+class WeekRecordGrid extends ConsumerWidget {
+  const WeekRecordGrid({
+    super.key,
+    required this.course,
+    this.mode = GridLayoutMode.scroll,
+    this.density = GridDensity.regular,
+  });
+
+  final Course course;
+  final GridLayoutMode mode;
+  final GridDensity density;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final todayIndex = ref.watch(todayWeekIndexProvider);
+    final readOnly = ref.watch(recordReadOnlyProvider);
+    return RecordGrid(
+      items: course.items,
+      headerLabel: '주차',
+      mode: mode,
+      density: density,
+      rows: [
+        for (var i = 0; i < course.weeks.length; i++)
+          RecordGridRow(
+            title: '${i + 1}주',
+            subtitle: course.weeks[i].off ? '휴강' : _md(course.weeks[i]),
+            dim: course.weeks[i].off,
+            highlight: i == todayIndex,
+            onTap: readOnly
+                ? null
+                : () {
+                    ref.read(pickedWeekProvider.notifier).state = i;
+                    ref.read(homeTabProvider.notifier).state = HomeTab.week;
+                  },
+          ),
+      ],
+      cellBuilder: (row, item, part, m) => ProviderRecordCell(week: row + 1, item: item, part: part, metrics: m),
     );
   }
 
@@ -254,35 +134,48 @@ class _GridView extends ConsumerWidget {
   }
 }
 
-/// 표 칸 하나. 그 칸 값만 watch 해서 체크 하나에 칸 하나만 다시 그려요.
-/// 사유가 있는 ·는 누르면 사유를 보여 줘요 (표시는 가운데 점만).
-class _Cell extends ConsumerWidget {
-  const _Cell({required this.week, required this.itemId, required this.partId, required this.type});
+/// '이미지로 저장': 모든 주차 × 모든 항목을 제목·이름과 함께 그림으로 저장해요.
+class _SaveImageButton extends ConsumerStatefulWidget {
+  const _SaveImageButton({required this.course});
 
-  final int week;
-  final String itemId;
-  final String partId;
-  final PartType type;
+  final Course course;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.palette;
-    final entry = ref.watch(courseRecordProvider.select((r) => r.entry(week, itemId, partId)));
-    if (type.isDaily) {
-      return Text(
-        dailyCellText(entry.value),
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: p.ink),
-      );
+  ConsumerState<_SaveImageButton> createState() => _SaveImageButtonState();
+}
+
+class _SaveImageButtonState extends ConsumerState<_SaveImageButton> {
+  bool _saving = false; // 저장하는 동안 또 눌리지 않게
+
+  Future<void> _save() async {
+    final name = ref.read(myNameProvider).trim();
+    if (name.isEmpty) {
+      await showInfoDialog(context, title: '이름을 먼저 적어 주세요', body: '저장하는 그림에 이름이 들어가요.\n설정 > 내 이름에 이름을 적고 다시 눌러 주세요.');
+      return;
     }
-    final mark = MarkValue.fromCode(entry.value);
-    if (mark == null) return const SizedBox.shrink();
-    final glyph = MarkGlyph(value: mark, color: markTone(mark).colors(p).$1, size: 18);
-    final note = entry.note;
-    if (note == null) return glyph;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => showInfoDialog(context, title: '$week주 사유', body: note),
-      child: SizedBox.expand(child: Center(child: glyph)),
-    );
+    setState(() => _saving = true);
+    try {
+      final now = DateTime.now();
+      await exportGridImage(
+        context,
+        baseName: 'coram_deo_${ymd(now).replaceAll('-', '')}_${pad2(now.hour)}${pad2(now.minute)}${pad2(now.second)}',
+        lines: [
+          ExportLine(widget.course.fullTitle),
+          ExportLine('이름: $name', ExportLineStyle.big),
+          ExportLine('저장일: ${now.year}.${pad2(now.month)}.${pad2(now.day)}', ExportLineStyle.small),
+        ],
+        // 줄이거나 밀지 않은 원래 크기 표 (화면에 보이는 부분이 아니라 전체)
+        grid: WeekRecordGrid(course: widget.course, mode: GridLayoutMode.full),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
+
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+    onPressed: _saving ? null : _save,
+    icon: const Icon(Icons.image_outlined, size: 20),
+    label: const Text('이미지로 저장'),
+  );
 }

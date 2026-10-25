@@ -7,7 +7,7 @@ import '../../../core/firebase_providers.dart';
 import '../data/auth_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepository(ref.watch(firebaseAuthProvider), GoogleSignIn.instance),
+  (ref) => AuthRepository(ref.watch(adminAuthProvider), GoogleSignIn.instance),
 );
 
 /// 로그인 상태 (관리자 모드에서만 씀). null이면 로그아웃.

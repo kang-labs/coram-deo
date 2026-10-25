@@ -41,7 +41,7 @@ Future<_FakeRepo> _open(
   final repo = _FakeRepo();
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [courseRepositoryProvider.overrideWithValue(repo)],
+      overrides: [adminCourseRepositoryProvider.overrideWithValue(repo)],
       child: MaterialApp(
         theme: AppTheme.of(AppThemeId.fallback),
         home: Builder(

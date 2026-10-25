@@ -7,6 +7,7 @@ import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
 import '../../install/ui/install_guide.dart';
 import '../../record/logic/record_providers.dart';
+import '../../roster/logic/roster_providers.dart';
 import '../logic/course_providers.dart';
 
 /// 처음 실행: 반 고르기 → 이번 주 화면
@@ -29,7 +30,7 @@ class CoursePickerScreen extends ConsumerWidget {
                       children: [
                         Text('하나님앞에서', style: Theme.of(context).textTheme.headlineMedium),
                         const SizedBox(height: 8),
-                        const MutedText('내가 듣는 반을 골라 주세요. 체크 기록은 이 폰에만 저장돼요.'),
+                        const MutedText('내가 듣는 반을 골라 주세요. 체크 기록은 이 폰에 저장되고, 그 반 반장·총무와 관리자도 출석부로 볼 수 있어요.'),
                         const SizedBox(height: 16),
                       ],
                     ),
@@ -63,6 +64,8 @@ Future<void> showCoursePickerSheet(BuildContext context, WidgetRef ref) {
           ),
           CourseListSliver(
             onPicked: (c) {
+              final prev = ref.read(selectedCourseIdProvider);
+              if (prev != null && prev != c.id) ref.read(leaveCourseIfEmptyProvider)(prev);
               ref.read(selectedCourseIdProvider.notifier).select(c.id);
               Navigator.pop(sheet);
             },

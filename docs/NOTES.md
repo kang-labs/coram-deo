@@ -135,3 +135,14 @@
 - 파일 `coram-deo-backup-YYYYMMDD.json`: `{app:'coram_deo', format:1, savedAt, name, courseId, records:{id: 기록 JSON}, snapshots:{id: 반 문서}}`. `Backup.parse`는 관대하게(다른 앱 파일·깨진 파일 null, 깨진 반은 건너뜀).
 - 불러오기: 파일에 든 반만 덮어씀, 다른 반은 그대로. 이름은 파일에 있을 때만, 고른 반은 폰에 없을 때만. 끝나면 selectedCourseId·myName·courseRecord·pastBooks provider 다시 읽음.
 - 용도: GitHub판(debug 서명) → Play판(서명 다름, 덮어 설치 불가)으로 옮길 때, 폰 바꿀 때, 아이폰 웹 ↔ 안드로이드.
+
+## 반장·총무 출석부, 관리자 숫자 비밀번호, 표 가로 보기 (2026-10-25)
+
+- 처음 실행: `RootGate` → 이름이 비면 `NameScreen`(본명, 같은 이름은 A·B·C). 설정 이름은 빈 값 불가.
+- 기록 올리기: 기본 Firebase 앱 익명 로그인(`memberAuthProvider`, `memberUidProvider`) → `courses/{반}/members/{uid}` {name, record, updatedAt}. `memberSyncProvider`(HomeShell watch): 3초 디바운스, prefs `sent.{반}`과 같으면 안 올림. Firebase 없으면(테스트) 건너뜀.
+- 관리자: 두 번째 Firebase 앱 `admin`(main에서 초기화)에서 이메일/비밀번호 = bible4217@gmail.com + 숫자 6자리. 비밀번호는 PC에서 `python tool/dev/set_admin_pin.py`(사용자가 직접 입력, owner 토큰으로 accounts:update, emailVerified true). 구글 로그인은 '비밀번호를 잊었어요'로 작게. 관리자 쓰기는 `adminCourseRepositoryProvider`·`adminRosterRepositoryProvider`.
+- 반장·총무: 반 문서 `leaders {chief, treasurer}`(공개), 코드 `courses/{반}/private/codes {code}`(관리자만). 관리자 반 메뉴 '반장·총무 정하기'(랜덤 4자리), 이름·코드 바뀌면 `leaders/*` 지움. 이름이 맞는 폰은 반마다 한 번 코드 창(prefs `leaderAsked.{반}`), 설정 '반장·총무 코드 넣기'. 인정 = `courses/{반}/leaders/{uid}` {name(띄어쓰기 뺌), code, at}를 규칙이 private 코드·이름과 비교. 새 학기 사본은 반장·총무 비움 → 권한 회수.
+- 출석부: 하단 탭 `HomeTab.roster`(인정된 폰만), `RosterView`(주차 고르기, 사람 가나다순, 같은 이름은 최근 것만 `latestByName`). 관리자 반 메뉴 '출석부 보기' = 모든 반·주차 + 이미지 저장.
+- 표: `features/table/ui/record_grid.dart` 공통 표(`RecordGrid`, scroll/fit/full, regular/compact), 가로(폭>높이 또는 600dp↑)는 compact fit, 세로는 밀어 보기 + '이미지로 저장'(내 표만, 이름 들어감, `gal` 2.3.3, 웹은 file_picker 내려받기). 가로일 때 제목줄 44로 낮춤.
+- 규칙 시험: `firebase emulators:exec --only firestore "python tool/dev/rules_test.py"` (JAVA_HOME = Android Studio jbr). 24/24.
+- 로그인 방식: 이메일/비밀번호·익명을 켬(`set_admin_pin.py --providers-only`).

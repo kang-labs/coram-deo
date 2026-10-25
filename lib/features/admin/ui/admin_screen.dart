@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/dialogs.dart';
@@ -11,6 +12,8 @@ import '../../course/data/course_repository.dart';
 import '../../course/logic/course_providers.dart';
 import '../logic/admin_providers.dart';
 import 'course_editor_screen.dart';
+import '../../roster/ui/roster_tab.dart';
+import 'leaders_sheet.dart';
 
 /// 관리자 모드: 구글 로그인(관리자 이메일만) → 반 목록
 class AdminScreen extends ConsumerWidget {
@@ -62,7 +65,7 @@ class AdminScreen extends ConsumerWidget {
     final list = ref.read(allCoursesProvider).valueOrNull ?? const <Course>[];
     // 지금 학기 반으로, 12주는 빈 날짜로 미리 만들어 둬요(1주 날짜를 넣으면 나머지가 7일씩 채워져요).
     final course = Course(
-      id: ref.read(courseRepositoryProvider).newId(),
+      id: ref.read(adminCourseRepositoryProvider).newId(),
       name: '',
       semester: ref.read(semesterProvider).valueOrNull ?? 0,
       order: _nextOrder(list),
@@ -99,57 +102,115 @@ class _SignInView extends ConsumerStatefulWidget {
 }
 
 class _SignInViewState extends ConsumerState<_SignInView> {
+  final _pin = TextEditingController();
   bool _busy = false;
 
-  Future<void> _signIn() async {
+  @override
+  void dispose() {
+    _pin.dispose();
+    super.dispose();
+  }
+
+  Future<void> _run(Future<void> Function() signIn) async {
     setState(() => _busy = true);
     try {
-      await ref.read(authRepositoryProvider).signInWithGoogle();
+      await signIn();
+    } on FirebaseAuthException catch (e) {
+      if (mounted) await showInfoDialog(context, title: '로그인하지 못했어요', body: _authMessage(e));
     } catch (e) {
-      if (mounted) {
-        await showInfoDialog(context, title: '로그인하지 못했어요', body: '잠시 후 다시 시도해 주세요.\n($e)');
-      }
+      if (mounted) await showInfoDialog(context, title: '로그인하지 못했어요', body: '잠시 후 다시 시도해 주세요.\n($e)');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  static String _authMessage(FirebaseAuthException e) => switch (e.code) {
+    'wrong-password' || 'invalid-credential' || 'invalid-login-credentials' => '비밀번호가 맞지 않아요.',
+    'too-many-requests' => '여러 번 틀려서 잠시 막혔어요. 조금 뒤에 다시 해 주세요.',
+    'network-request-failed' => '인터넷 연결을 확인해 주세요.',
+    'user-not-found' || 'operation-not-allowed' => '아직 관리자 비밀번호가 정해지지 않았어요.',
+    _ => '잠시 후 다시 시도해 주세요. (${e.code})',
+  };
+
+  void _signInWithPin() {
+    final pin = _pin.text.trim();
+    if (pin.length != 6) {
+      showInfoDialog(context, body: '숫자 6자리를 넣어 주세요.');
+      return;
+    }
+    _run(() => ref.read(authRepositoryProvider).signInWithPin(pin));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return EmptyState(
-      icon: Icons.admin_panel_settings_rounded,
-      title: '관리자만 쓸 수 있어요',
-      message: '반·일정표·체크 항목을 고치려면 관리자 구글 계정으로 로그인해 주세요.\n체크 기록은 로그인 없이 폰에만 저장돼요.',
-      action: FilledButton.icon(
-        onPressed: _busy ? null : _signIn,
-        icon: _busy
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(Icons.login_rounded),
-        label: const Text('구글로 로그인'),
-      ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 32, AppLayout.sidePadding, 24),
+      children: [
+        const Center(child: IconBubble(icon: Icons.admin_panel_settings_rounded, size: 64)),
+        const SizedBox(height: 16),
+        const Text(
+          '관리자만 쓸 수 있어요',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        const MutedText('관리자 비밀번호(숫자 6자리)를 넣어 주세요.', textAlign: TextAlign.center),
+        const SizedBox(height: 24),
+        TextField(
+          controller: _pin,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 24, letterSpacing: 8),
+          decoration: const InputDecoration(hintText: '••••••', counterText: ''),
+          onSubmitted: (_) => _signInWithPin(),
+        ),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: _busy ? null : _signInWithPin,
+          icon: _busy
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.login_rounded),
+          label: const Text('로그인'),
+        ),
+        const SizedBox(height: 32),
+        // 비밀번호를 잊었을 때만 쓰는 구글 로그인 (눈에 덜 띄게)
+        TextButton(
+          onPressed: _busy ? null : () => _run(() => ref.read(authRepositoryProvider).signInWithGoogle()),
+          child: MutedText('비밀번호를 잊었어요 · 구글 계정으로 로그인', style: const TextStyle(fontSize: 13)),
+        ),
+      ],
     );
   }
 }
 
 /// 반 하나에 할 수 있는 일 (메뉴 순서대로)
-enum _CourseAction { edit, copy, toggleVisible, delete }
+enum _CourseAction { edit, roster, leaders, copy, toggleVisible, delete }
 
 class _CourseAdminList extends ConsumerWidget {
   const _CourseAdminList();
 
   String _label(_CourseAction a, Course c) => switch (a) {
     _CourseAction.edit => '편집',
+    _CourseAction.roster => '출석부 보기',
+    _CourseAction.leaders => '반장·총무 정하기',
     _CourseAction.copy => '다음 기수로 복사',
     _CourseAction.toggleVisible => c.visible ? '숨기기' : '보이기',
     _CourseAction.delete => '삭제',
   };
 
   Future<void> _run(BuildContext context, WidgetRef ref, _CourseAction a, Course c, List<Course> all) async {
-    final repo = ref.read(courseRepositoryProvider);
+    final repo = ref.read(adminCourseRepositoryProvider);
     try {
       switch (a) {
         case _CourseAction.edit:
           await openCourseEditor(context, c);
+        case _CourseAction.roster:
+          await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AdminRosterScreen(course: c)));
+        case _CourseAction.leaders:
+          await showLeadersSheet(context, c);
         case _CourseAction.copy:
           // 항목·기록요령·일정 내용은 그대로, 기수 +1, 날짜만 비워서 다음 학기 반으로(숨김 상태).
           // 편집 > 일정표에서 1주 날짜를 넣으면 나머지 주가 7일씩 채워져요.
@@ -265,6 +326,14 @@ class _AdminCourseCard extends StatelessWidget {
                     ].join(' · '),
                     style: const TextStyle(fontSize: 13),
                   ),
+                  if (c.chief.isNotEmpty || c.treasurer.isNotEmpty)
+                    MutedText(
+                      [
+                        if (c.chief.isNotEmpty) '반장 ${c.chief}',
+                        if (c.treasurer.isNotEmpty) '총무 ${c.treasurer}',
+                      ].join(' · '),
+                      style: const TextStyle(fontSize: 13),
+                    ),
                 ],
               ),
             ),
@@ -303,7 +372,7 @@ class _SemesterCard extends ConsumerWidget {
     if (!ok || !context.mounted) return;
     await _guard(
       context,
-      () => _queued(context, ref.read(courseRepositoryProvider).prepareNextSemester(current, semester + 1)),
+      () => _queued(context, ref.read(adminCourseRepositoryProvider).prepareNextSemester(current, semester + 1)),
     );
   }
 
@@ -322,7 +391,10 @@ class _SemesterCard extends ConsumerWidget {
       ok: '시작하기',
     );
     if (!ok || !context.mounted) return;
-    await _guard(context, () => _queued(context, ref.read(courseRepositoryProvider).startSemester(all, semester + 1)));
+    await _guard(
+      context,
+      () => _queued(context, ref.read(adminCourseRepositoryProvider).startSemester(all, semester + 1)),
+    );
   }
 
   @override

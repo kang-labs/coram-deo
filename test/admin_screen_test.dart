@@ -27,11 +27,17 @@ class _FakeUser implements User {
 }
 
 void main() {
-  testWidgets('로그인 전: 구글 로그인 안내', (tester) async {
+  testWidgets('로그인 전: 숫자 비밀번호 6자리, 구글 로그인은 작게', (tester) async {
     await tester.pumpWidget(_app([authStateProvider.overrideWith((ref) => Stream.value(null))]));
     await tester.pumpAndSettle();
-    expect(find.text('구글로 로그인'), findsOneWidget);
+    expect(find.text('관리자 비밀번호(숫자 6자리)를 넣어 주세요.'), findsOneWidget);
+    expect(find.text('비밀번호를 잊었어요 · 구글 계정으로 로그인'), findsOneWidget);
     expect(find.text('반 추가'), findsNothing);
+    // 6자리가 아니면 로그인하지 않고 안내
+    await tester.enterText(find.byType(TextField), '123');
+    await tester.tap(find.text('로그인'));
+    await tester.pumpAndSettle();
+    expect(find.text('숫자 6자리를 넣어 주세요.'), findsOneWidget);
   });
 
   testWidgets('관리자: 반 목록(숨김 표시)과 메뉴', (tester) async {

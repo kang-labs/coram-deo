@@ -94,7 +94,7 @@ void showInstallGuideSheet(BuildContext context) {
           ),
         const SizedBox(height: 4),
         const MutedText(
-          '체크 기록은 이 폰에만 저장돼요. 브라우저의 방문 기록·웹사이트 데이터를 지우면 기록도 지워지니 주의해 주세요.',
+          '체크 기록은 이 폰에 저장돼요. 브라우저의 방문 기록·웹사이트 데이터를 지우면 기록도 지워지니 주의해 주세요.',
           style: TextStyle(fontSize: 13, height: 1.5),
         ),
       ],

@@ -19,6 +19,13 @@ bool _bool(Object? v, bool fallback) => v is bool ? v : fallback;
 
 int _int(Object? v, int fallback) => v is num && v.isFinite ? v.toInt() : fallback;
 
+/// 맵이 아니면 빈 맵
+Map<Object?, Object?> _map(Object? v) => v is Map ? v : const {};
+
+/// 이름 비교용: 띄어쓰기를 모두 빼요 ('홍 길동A' == '홍길동A')
+/// 서버 규칙 bare()와 같은 결과가 되게: 공백은 \t \n \f \r 와 스페이스만(규칙 정규식의 \s와 같은 범위) 빼고, 영문은 대문자로.
+String normalizeName(String name) => name.replaceAll(RegExp(r'[\t\n\f\r ]+'), '').toUpperCase();
+
 /// 맵들의 목록만 골라요 (목록이 아니면 빈 목록, 맵이 아닌 항목은 건너뜀)
 List<Map<String, dynamic>> _maps(Object? v) => [
   if (v is List)
@@ -318,6 +325,8 @@ class Course {
     this.program = '',
     this.cohort = 0,
     this.semester = 0,
+    this.chief = '',
+    this.treasurer = '',
     this.weekday = DateTime.saturday,
     this.time = '',
     this.order = 0,
@@ -343,6 +352,16 @@ class Course {
 
   /// 어느 학기 반인지 (`config/app.semester`와 같으면 지금 학기). 예전 반은 0.
   final int semester;
+
+  /// 반장·총무 이름 (관리자가 적음, 서버 `leaders: {chief, treasurer}`). 이 이름인 사람이 반 코드를 넣으면 출석부를 봐요.
+  final String chief;
+  final String treasurer;
+
+  /// 이 이름이 반장·총무로 지정됐는지 (띄어쓰기 무시)
+  bool isLeaderName(String name) {
+    final n = normalizeName(name);
+    return n.isNotEmpty && (n == normalizeName(chief) || n == normalizeName(treasurer));
+  }
 
   /// 수업 요일 (DateTime.weekday: 월1 … 일7)
   final int weekday;
@@ -393,6 +412,8 @@ class Course {
       program: _str(m['program']),
       cohort: _int(m['cohort'], 0).clamp(0, 9999),
       semester: _int(m['semester'], 0),
+      chief: _str(_map(m['leaders'])['chief']),
+      treasurer: _str(_map(m['leaders'])['treasurer']),
       weekday: _int(m['weekday'], DateTime.saturday).clamp(1, 7),
       time: _str(m['time']),
       order: _int(m['order'], 0),
@@ -412,6 +433,7 @@ class Course {
     'program': program,
     'cohort': cohort,
     'semester': semester,
+    'leaders': {'chief': chief, 'treasurer': treasurer},
     'weekday': weekday,
     'time': time,
     'order': order,
@@ -429,6 +451,8 @@ class Course {
     String? program,
     int? cohort,
     int? semester,
+    String? chief,
+    String? treasurer,
     int? weekday,
     String? time,
     int? order,
@@ -444,6 +468,8 @@ class Course {
     program: program ?? this.program,
     cohort: cohort ?? this.cohort,
     semester: semester ?? this.semester,
+    chief: chief ?? this.chief,
+    treasurer: treasurer ?? this.treasurer,
     weekday: weekday ?? this.weekday,
     time: time ?? this.time,
     order: order ?? this.order,
@@ -464,6 +490,8 @@ class Course {
       other.program == program &&
       other.cohort == cohort &&
       other.semester == semester &&
+      other.chief == chief &&
+      other.treasurer == treasurer &&
       other.weekday == weekday &&
       other.time == time &&
       other.order == order &&
@@ -482,6 +510,8 @@ class Course {
     program,
     cohort,
     semester,
+    chief,
+    treasurer,
     weekday,
     time,
     order,

@@ -6,7 +6,11 @@ import '../../../core/models/course.dart';
 import '../../course/logic/course_providers.dart';
 import '../../course/ui/course_picker_screen.dart';
 import '../../install/ui/install_guide.dart';
+import '../../../core/local_storage.dart';
 import '../../record/logic/record_providers.dart';
+import '../../roster/logic/roster_providers.dart';
+import '../../roster/ui/leader_code.dart';
+import '../../roster/ui/roster_tab.dart';
 import '../../schedule/ui/schedule_tab.dart';
 import '../../settings/ui/settings_tab.dart';
 import '../../table/ui/check_table_tab.dart';
@@ -37,6 +41,13 @@ final _tabs = <HomeTab, _TabSpec>{
     selectedIcon: Icons.grid_on_rounded,
     needsCourse: true,
     build: (c) => CheckTableTab(course: c!),
+  ),
+  HomeTab.roster: (
+    label: '출석부',
+    icon: Icons.groups_outlined,
+    selectedIcon: Icons.groups_rounded,
+    needsCourse: true,
+    build: (c) => RosterTab(course: c!),
   ),
   HomeTab.schedule: (
     label: '일정표',
@@ -78,11 +89,22 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     super.dispose();
   }
 
-  Widget _tabStack(HomeTab tab, Course? course, AsyncValue<Course?> courseAsync) {
+  /// 반마다 한 번만 자동으로 물어요(닫아도 설정에서 다시 넣을 수 있어요).
+  void _askLeaderCodeOnce() {
+    final cid = ref.read(selectedCourseIdProvider);
+    final prefs = ref.read(sharedPreferencesProvider);
+    if (cid == null || prefs.getBool('leaderAsked.$cid') == true) return;
+    prefs.setBool('leaderAsked.$cid', true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) askLeaderCode(context, ref);
+    });
+  }
+
+  Widget _tabStack(List<HomeTab> shown, HomeTab tab, Course? course, AsyncValue<Course?> courseAsync) {
     return IndexedStack(
-      index: tab.index,
+      index: shown.indexOf(tab),
       children: [
-        for (final t in HomeTab.values)
+        for (final t in shown)
           KeyedSubtree(
             key: ValueKey(t),
             child: !_tabs[t]!.needsCourse || course != null
@@ -105,22 +127,42 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final tab = ref.watch(homeTabProvider);
+    // 내 기록을 서버에 올려요(체크가 바뀌면 3초 뒤 한 번). 반장·총무·관리자가 봐요.
+    ref.watch(memberSyncProvider);
+    // 반장·총무로 정해졌는데 아직 코드를 안 넣었으면, 이 반에서 한 번 코드를 물어요.
+    ref.listen(leaderCodeNeededProvider, (_, needed) {
+      if (needed) _askLeaderCodeOnce();
+    });
+    // 반을 바꾸는 중에는 이전 반 값이 남아 있으니 확인이 끝난 뒤에만 출석부 탭을 보여요
+    final leaderState = ref.watch(isLeaderProvider);
+    final leader = !leaderState.isLoading && (leaderState.valueOrNull ?? false);
+    final shown = [
+      for (final t in HomeTab.values)
+        if (t != HomeTab.roster || leader) t,
+    ];
+    final picked = ref.watch(homeTabProvider);
+    final tab = shown.contains(picked) ? picked : HomeTab.week;
     final courseAsync = ref.watch(currentCourseProvider);
     final course = courseAsync.valueOrNull;
+    final size = MediaQuery.sizeOf(context);
+    final wide = size.width > size.height;
     return Scaffold(
-      appBar: AppBar(toolbarHeight: 64, title: _CourseTitle(course: course)),
+      // 가로 화면은 제목줄을 낮춰 표가 더 많이 보이게 (이름 줄은 빼요)
+      appBar: AppBar(
+        toolbarHeight: wide ? 44 : 64,
+        title: _CourseTitle(course: course, compact: wide),
+      ),
       body: Column(
         children: [
           const InstallBanner(),
-          Expanded(child: _tabStack(tab, course, courseAsync)),
+          Expanded(child: _tabStack(shown, tab, course, courseAsync)),
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: tab.index,
-        onDestinationSelected: (i) => ref.read(homeTabProvider.notifier).state = HomeTab.values[i],
+        selectedIndex: shown.indexOf(tab),
+        onDestinationSelected: (i) => ref.read(homeTabProvider.notifier).state = shown[i],
         destinations: [
-          for (final t in HomeTab.values)
+          for (final t in shown)
             NavigationDestination(
               icon: Icon(_tabs[t]!.icon),
               selectedIcon: Icon(_tabs[t]!.selectedIcon),
@@ -134,14 +176,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
 /// 앱바 제목: 반 이름 + 기수·학기 · 내 이름
 class _CourseTitle extends ConsumerWidget {
-  const _CourseTitle({required this.course});
+  const _CourseTitle({required this.course, this.compact = false});
 
   final Course? course;
+
+  /// 가로 화면: 한 줄만 (반 이름)
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final name = ref.watch(myNameProvider);
-    final sub = [if (course?.term.isNotEmpty ?? false) course!.term, if (name.isNotEmpty) name].join(' · ');
+    final group = course?.groupTitle ?? '';
+    final sub = compact ? '' : [if (group.isNotEmpty) group, if (name.isNotEmpty) name].join(' · ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,

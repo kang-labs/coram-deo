@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// 예/아니오를 묻는 대화상자. 확인을 눌렀을 때만 true.
 Future<bool> showConfirmDialog(
@@ -57,6 +58,8 @@ Future<String?> showTextInputDialog(
   int maxLength = 20,
   String confirmText = '저장',
   bool allowEmpty = false,
+  String? message,
+  bool digitsOnly = false,
 }) {
   return showDialog<String>(
     context: context,
@@ -68,6 +71,8 @@ Future<String?> showTextInputDialog(
       maxLength: maxLength,
       confirmText: confirmText,
       allowEmpty: allowEmpty,
+      message: message,
+      digitsOnly: digitsOnly,
     ),
   );
 }
@@ -81,6 +86,8 @@ class _TextInputDialog extends StatefulWidget {
     required this.maxLength,
     required this.confirmText,
     required this.allowEmpty,
+    this.message,
+    this.digitsOnly = false,
   });
 
   final String title;
@@ -90,6 +97,12 @@ class _TextInputDialog extends StatefulWidget {
   final int maxLength;
   final String confirmText;
   final bool allowEmpty;
+
+  /// 입력 칸 위 안내 글
+  final String? message;
+
+  /// 숫자만 (숫자 자판)
+  final bool digitsOnly;
 
   @override
   State<_TextInputDialog> createState() => _TextInputDialogState();
@@ -114,13 +127,22 @@ class _TextInputDialogState extends State<_TextInputDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(widget.title),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        maxLength: widget.maxLength,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => _submit(),
-        decoration: InputDecoration(labelText: widget.label, hintText: widget.hint),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.message != null) ...[Text(widget.message!), const SizedBox(height: 12)],
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            maxLength: widget.maxLength,
+            textInputAction: TextInputAction.done,
+            keyboardType: widget.digitsOnly ? TextInputType.number : null,
+            inputFormatters: widget.digitsOnly ? [FilteringTextInputFormatter.digitsOnly] : null,
+            onSubmitted: (_) => _submit(),
+            decoration: InputDecoration(labelText: widget.label, hintText: widget.hint),
+          ),
+        ],
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),

@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 표 그림을 갤러리에 저장: 안드로이드 9 이하에서만 필요해요 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <application
         android:label="하나님앞에서"
         android:name="${applicationName}"

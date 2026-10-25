@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/models/course.dart';
 import 'course_record.dart';
 
-/// 폰에만 저장하는 값들 (고른 반, 내 이름, 반별 체크 기록, 지난 출석부용 반 사본). 로그인 없이 씁니다.
+/// 폰에 저장하는 값들 (고른 반, 내 이름, 반별 체크 기록, 지난 출석부용 반 사본).
 class LocalStore {
   LocalStore(this._prefs);
 

@@ -89,7 +89,9 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     }
     setState(() => _saving = true);
     try {
-      final confirmed = await CourseRepository.confirmedWithin(ref.read(courseRepositoryProvider).save(_cleaned()));
+      final confirmed = await CourseRepository.confirmedWithin(
+        ref.read(adminCourseRepositoryProvider).save(_cleaned()),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(confirmed ? '저장했어요' : '폰에 저장했어요. 인터넷이 연결되면 올라가요.')));

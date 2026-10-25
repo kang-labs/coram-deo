@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/course/logic/course_providers.dart';
 import '../features/course/ui/course_picker_screen.dart';
 import '../features/home/ui/home_shell.dart';
+import '../features/profile/ui/name_screen.dart';
 import '../features/record/logic/record_providers.dart';
 import '../features/theme/logic/theme_providers.dart';
 import '../features/update/ui/update_prompt.dart';
@@ -36,7 +37,7 @@ class CoramDeoApp extends ConsumerWidget {
   }
 }
 
-/// 처음 실행(반을 아직 안 골랐으면) → 반 고르기, 아니면 하단 탭 화면
+/// 처음 실행: 이름 → 반 고르기 → 하단 탭 화면 (이름이 비면 이름부터)
 class RootGate extends ConsumerWidget {
   const RootGate({super.key});
 
@@ -46,6 +47,8 @@ class RootGate extends ConsumerWidget {
     ref.listen(selectedCourseOutdatedProvider, (_, outdated) {
       if (outdated) ref.read(selectedCourseIdProvider.notifier).clear();
     });
+    final hasName = ref.watch(myNameProvider.select((n) => n.isNotEmpty));
+    if (!hasName) return const NameScreen();
     final hasCourse = ref.watch(selectedCourseIdProvider.select((id) => id != null));
     return hasCourse ? const HomeShell() : const CoursePickerScreen();
   }

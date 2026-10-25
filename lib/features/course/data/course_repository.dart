@@ -104,6 +104,9 @@ Course nextSemesterCopy(Course c, {required String id, required int semester}) {
   return c.copyWith(
     id: id,
     term: '',
+    // 새 학기에는 반장·총무를 새로 정해요(지난 권한은 새 반에 없음)
+    chief: '',
+    treasurer: '',
     cohort: c.cohort > 0 ? c.cohort + 1 : 0,
     semester: semester,
     visible: false,

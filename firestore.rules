@@ -1,8 +1,8 @@
 rules_version = '2';
 
-// 하나님앞에서: 반(courses)은 누구나 읽고, 관리자 이메일(구글 로그인, 이메일 확인됨)만 써요.
+// 하나님앞에서: 반(courses)은 누구나 읽고, 관리자 이메일(숫자 비밀번호 또는 구글 로그인, 이메일 확인됨)만 써요.
 // 관리자 목록은 lib/core/admin.dart의 adminEmails와 같게 유지하세요.
-// 개인 체크 기록은 폰에만 저장하므로 서버에는 courses와 config(학기 번호)만 있어요.
+// 개인 체크 기록은 폰에 저장하고, 반장·총무·관리자가 볼 수 있게 courses/{반}/members에도 올려요(익명 로그인 uid별).
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -30,10 +30,12 @@ service cloud.firestore {
         && (!('program' in d) || (d.program is string && d.program.size() <= 20))
         && (!('cohort' in d) || (d.cohort is int && d.cohort >= 0 && d.cohort <= 9999))
         && (!('semester' in d) || d.semester is int)
+        && (!('leaders' in d) || d.leaders is map)
         // 한 번 생긴 과정·기수·학기는 지우지 못해요(예전 앱이 저장하며 지우는 것 막기)
         && (resource == null || !('semester' in resource.data) || 'semester' in d)
         && (resource == null || !('program' in resource.data) || 'program' in d)
         && (resource == null || !('cohort' in resource.data) || 'cohort' in d)
+        && (resource == null || !('leaders' in resource.data) || 'leaders' in d)
         && (!('updatedAt' in d) || d.updatedAt is timestamp);
     }
 
@@ -46,10 +48,58 @@ service cloud.firestore {
         && request.resource.data.semester == (resource == null ? 1 : resource.data.semester + 1);
     }
 
+    // 이름 비교: 띄어쓰기를 모두 빼고 영문은 대문자로 (앱 normalizeName과 같게)
+    function bare(s) {
+      return s.replace('\\s+', '').upper();
+    }
+
     match /courses/{courseId} {
       allow read: if true;
       allow create, update: if isAdmin() && validCourse(request.resource.data);
       allow delete: if isAdmin();
+
+      function courseDoc() {
+        return get(/databases/$(database)/documents/courses/$(courseId)).data;
+      }
+
+      // 이 폰(익명 uid)이 이 반 반장·총무로 인정됐는지
+      function isLeader() {
+        return request.auth != null
+          && exists(/databases/$(database)/documents/courses/$(courseId)/leaders/$(request.auth.uid));
+      }
+
+      // 반장·총무 코드 (숫자 4자리). 관리자만 읽고 써요.
+      match /private/{docId} {
+        allow read, write: if isAdmin();
+      }
+
+      // 반장·총무 인정: 관리자가 적은 반장 또는 총무 이름과 같고(띄어쓰기 무시), 반 코드가 맞을 때만 만들 수 있어요.
+      // 관리자가 이름이나 코드를 바꾸면 앱이 이 문서들을 지워서 다시 넣게 해요. 새 학기 반에는 없어요.
+      match /leaders/{uid} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['name', 'code', 'at'])
+          && request.resource.data.name is string && request.resource.data.name.size() > 0
+          && request.resource.data.code is string && request.resource.data.code.size() == 4
+          && request.resource.data.code == get(/databases/$(database)/documents/courses/$(courseId)/private/codes).data.code
+          && (request.resource.data.name == bare(courseDoc().get('leaders', {}).get('chief', ''))
+            || request.resource.data.name == bare(courseDoc().get('leaders', {}).get('treasurer', '')));
+        allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      }
+
+      // 반 사람 한 명의 체크 기록 (문서 id = 그 폰의 익명 uid). 본인만 쓰고, 본인·반장·총무·관리자만 읽어요.
+      match /members/{uid} {
+        allow read: if isAdmin() || isLeader() || (request.auth != null && request.auth.uid == uid);
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['name', 'record', 'updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 20
+          && request.resource.data.record is map && request.resource.data.record.size() <= 60
+          && request.resource.data.updatedAt == request.time
+          && exists(/databases/$(database)/documents/courses/$(courseId));
+        // 본인: 반을 잘못 골랐다가 바꿀 때 빈 기록 지우기
+        allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      }
     }
   }
 }

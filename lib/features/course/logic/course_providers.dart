@@ -8,6 +8,11 @@ import '../data/course_repository.dart';
 
 final courseRepositoryProvider = Provider<CourseRepository>((ref) => CourseRepository(ref.watch(firestoreProvider)));
 
+/// 관리자가 쓰기에 쓰는 저장소 (관리자 전용 Firebase 앱 = 관리자 로그인 권한으로 저장)
+final adminCourseRepositoryProvider = Provider<CourseRepository>(
+  (ref) => CourseRepository(ref.watch(adminFirestoreProvider)),
+);
+
 /// 모든 반 (관리자 화면용, 숨긴 반·지난 학기 포함)
 final allCoursesProvider = StreamProvider<List<Course>>((ref) => ref.watch(courseRepositoryProvider).watchAll());
 

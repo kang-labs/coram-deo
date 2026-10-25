@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
+import 'core/firebase_providers.dart';
 import 'core/local_storage.dart';
 import 'core/web_env.dart';
 import 'firebase_options.dart';
@@ -15,6 +16,8 @@ Future<void> main() async {
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
     SharedPreferences.getInstance(),
   ).wait;
+  // 관리자 로그인 전용 앱 (기본 앱의 익명 로그인 = 내 기록 자리를 건드리지 않게)
+  await Firebase.initializeApp(name: adminAppName, options: DefaultFirebaseOptions.currentPlatform);
   // 웹: 브라우저가 기록(저장 공간)을 자동으로 지우지 않게 요청해요. 기다리지 않아요.
   requestPersistentStorage();
   runApp(ProviderScope(overrides: [sharedPreferencesProvider.overrideWithValue(prefs)], child: const CoramDeoApp()));
