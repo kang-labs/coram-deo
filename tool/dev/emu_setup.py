@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sys
+import urllib.error
 import urllib.request
 
 sys.path.insert(0, __file__.rsplit("\\", 1)[0].rsplit("/", 1)[0])
@@ -51,7 +52,11 @@ def main() -> None:
             doc = {**doc, "leaders": {"chief": "TestChief", "treasurer": ""}}
         put(f"courses/{cid}", doc)
     put("courses/jedae2/private/codes", {"code": "4321"})
-    call("POST", AUTH, {"email": "bible4217@gmail.com", "password": TEST_ADMIN_PIN, "emailVerified": True})
+    try:
+        call("POST", AUTH, {"email": "bible4217@gmail.com", "password": TEST_ADMIN_PIN, "emailVerified": True})
+    except urllib.error.HTTPError as e:
+        if e.code != 400:  # 400 = 이미 있는 계정 (에뮬레이터를 끄지 않고 다시 돌릴 때)
+            raise
     print("에뮬레이터 준비 끝: 반 7개, 제자대학2학기 반장 TestChief / 코드 4321, 시험 관리자 계정")
 
 

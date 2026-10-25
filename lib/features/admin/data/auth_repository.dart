@@ -22,6 +22,16 @@ class AuthRepository {
   /// 비밀번호 설정은 PC에서 `python tool/dev/set_admin_pin.py`.
   Future<void> signInWithPin(String pin) => _auth.signInWithEmailAndPassword(email: adminEmails.first, password: pin);
 
+  /// 지금 로그인한 방법: 'google.com', 'password' 등. 로그아웃이면 null.
+  Future<String?> signInMethod() async => (await _auth.currentUser?.getIdTokenResult())?.signInProvider;
+
+  /// 관리자 숫자 비밀번호 바꾸기 (구글로 로그인했을 때만 앱이 보여 줘요). 처음이면 비밀번호 로그인이 새로 생겨요.
+  Future<void> changePin(String pin) async {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('로그인이 필요해요');
+    await user.updatePassword(pin);
+  }
+
   /// 구글 계정으로 로그인. 사용자가 창을 닫으면 false(오류 아님). 웹은 팝업 창.
   Future<bool> signInWithGoogle() async {
     if (kIsWeb) {

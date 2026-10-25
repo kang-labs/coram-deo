@@ -11,7 +11,8 @@ enum AppThemeId {
   milk('밀크', '깨끗하고 밝은 화이트', _milk),
   lavender('라벤더', '몽글몽글 연보라', _lavender),
   mint('민트', '산뜻한 민트와 하늘', _mint),
-  midnight('미드나잇', '차분한 네이비 다크', _midnight);
+  midnight('미드나잇', '차분한 네이비 다크', _midnight),
+  dark('다크', '검은 바탕에 회색 글자, 밤에 보기 편해요', _dark);
 
   const AppThemeId(this.label, this.description, this.palette);
 
@@ -173,4 +174,30 @@ const _midnight = AppPalette(
   hint: Color(0xFF5F6878),
   line: Color(0xFF2A303B),
   shadow: Color(0x40000000),
+);
+
+/// 다크: 거의 검은 바탕(OLED 폰은 배터리도 아껴요) + 차분한 회색 카드, 강조는 부드러운 하늘색.
+/// 글자 대비는 밝은 회백색으로 충분히(바탕 대비 약 15:1), ○·X·지각 색은 어두운 바탕에서 눈부시지 않게 채도를 낮춰요.
+const _dark = AppPalette(
+  brightness: Brightness.dark,
+  primary: Color(0xFF9DB7DD),
+  onPrimary: Color(0xFF111418),
+  primarySoft: Color(0xFF252A31),
+  onPrimarySoft: Color(0xFFD6E2F2),
+  accent: Color(0xFFA7B4C2),
+  accentSoft: Color(0xFF23272D),
+  warm: Color(0xFFE0B47A),
+  warmSoft: Color(0xFF2E2820),
+  success: Color(0xFF7CC9A1),
+  successSoft: Color(0xFF1C2A23),
+  danger: Color(0xFFE88A8A),
+  dangerSoft: Color(0xFF331F21),
+  background: Color(0xFF0B0C0E),
+  surface: Color(0xFF17191C),
+  surfaceMuted: Color(0xFF212429),
+  ink: Color(0xFFE8EAED),
+  inkSoft: Color(0xFF9AA0A8),
+  hint: Color(0xFF5C6168),
+  line: Color(0xFF2A2D32),
+  shadow: Color(0x66000000),
 );

@@ -44,6 +44,29 @@ List<Member> latestByName(Iterable<Member> members) {
   return byName.values.toList()..sort((a, b) => a.name.compareTo(b.name));
 }
 
+/// 출석부 순서: 반장 → 총무 → 나머지 이름 가나다순. 반장·총무 줄 이름 아래에 보일 역할 글도 같이.
+List<({Member member, String? role})> rosterOrder(List<Member> members, Course course) {
+  String? roleOf(Member m) {
+    final n = normalizeName(m.name);
+    if (n.isEmpty) return null;
+    if (n == normalizeName(course.chief)) return '반장';
+    if (n == normalizeName(course.treasurer)) return '총무';
+    return null;
+  }
+
+  int rank(String? role) => switch (role) {
+    '반장' => 0,
+    '총무' => 1,
+    _ => 2,
+  };
+  final rows = [for (final m in members) (member: m, role: roleOf(m))];
+  rows.sort((a, b) {
+    final r = rank(a.role).compareTo(rank(b.role));
+    return r != 0 ? r : a.member.name.compareTo(b.member.name);
+  });
+  return rows;
+}
+
 /// 반 사람 기록 올리기·보기, 반장·총무 코드
 class RosterRepository {
   RosterRepository(this._db);
@@ -68,6 +91,15 @@ class RosterRepository {
           .collection('members')
           .snapshots()
           .map((s) => latestByName([for (final d in s.docs) ?Member.fromDoc(d.id, d.data())]));
+
+  /// 관리자 화면: 반 기록을 미리 한 번 받아 폰 캐시에 넣어 둬요. 출석부를 열 때 캐시가 먼저 바로 보여요.
+  Future<void> prefetchMembers(String cid) async {
+    try {
+      await _course(cid).collection('members').get();
+    } catch (_) {
+      // 미리 받기는 실패해도 괜찮아요(열 때 다시 받아요)
+    }
+  }
 
   /// 이 폰(uid)이 이 반 반장·총무로 인정됐는지
   Stream<bool> watchIsLeader(String cid, String uid) =>

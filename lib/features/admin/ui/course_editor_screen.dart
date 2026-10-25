@@ -12,6 +12,7 @@ import '../../../core/models/course_limits.dart';
 import '../../course/data/course_repository.dart';
 import '../../course/logic/course_providers.dart';
 import '../logic/course_validation.dart';
+import 'leaders_sheet.dart';
 
 /// 반 편집: 기본 정보 / 일정표 / 체크 항목 / 기록요령. 저장을 눌러야 서버에 올라가요.
 class CourseEditorScreen extends ConsumerStatefulWidget {
@@ -38,6 +39,9 @@ enum _Section {
 
 class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   late Course _draft = widget.initial;
+
+  /// 서버에 저장된 모습 (반장·총무는 따로 바로 저장되니 그때 함께 맞춰요)
+  late Course _baseline = widget.initial;
   bool _saving = false;
 
   /// 저장했거나 '나가기'를 골랐으면 더 묻지 않고 닫아요.
@@ -46,7 +50,13 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   /// 목록을 통째로 바꿀 때(자동 채우기 등) 올려서, 입력 칸이 새 값으로 다시 만들어지게 합니다.
   int _gen = 0;
 
-  bool get _dirty => widget.isNew || _draft != widget.initial;
+  bool get _dirty => widget.isNew || _draft != _baseline;
+
+  /// 반장·총무를 저장했을 때: 편집 중인 값과 저장된 값 모두에 반영 (반 저장 때 옛 이름으로 덮지 않게)
+  void _leadersSaved(String chief, String treasurer) => setState(() {
+    _draft = _draft.copyWith(chief: chief, treasurer: treasurer);
+    _baseline = _baseline.copyWith(chief: chief, treasurer: treasurer);
+  });
 
   void _update(Course next, {bool regenerate = false}) => setState(() {
     _draft = next;
@@ -121,7 +131,13 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   @override
   Widget build(BuildContext context) {
     Widget section(_Section s) => switch (s) {
-      _Section.basic => _BasicSection(draft: _draft, gen: _gen, onChanged: _update),
+      _Section.basic => _BasicSection(
+        draft: _draft,
+        gen: _gen,
+        onChanged: _update,
+        isNew: widget.isNew,
+        onLeadersSaved: _leadersSaved,
+      ),
       _Section.schedule => _ScheduleSection(draft: _draft, gen: _gen, onChanged: _update),
       _Section.items => _ItemsSection(draft: _draft, gen: _gen, onChanged: _update),
       _Section.guide => _GuideSection(draft: _draft, gen: _gen, onChanged: _update),
@@ -198,11 +214,19 @@ Widget _field(
 const _listPadding = EdgeInsets.fromLTRB(AppLayout.sidePadding, 16, AppLayout.sidePadding, 32);
 
 class _BasicSection extends StatelessWidget {
-  const _BasicSection({required this.draft, required this.gen, required this.onChanged});
+  const _BasicSection({
+    required this.draft,
+    required this.gen,
+    required this.onChanged,
+    required this.isNew,
+    required this.onLeadersSaved,
+  });
 
   final Course draft;
   final int gen;
   final _OnChanged onChanged;
+  final bool isNew;
+  final void Function(String chief, String treasurer) onLeadersSaved;
 
   @override
   Widget build(BuildContext context) {
@@ -278,6 +302,22 @@ class _BasicSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         MutedText('반 id: ${d.id}', style: const TextStyle(fontSize: 12)),
+        const SizedBox(height: 16),
+        SoftCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const CardHeader(icon: Icons.badge_rounded, title: '반장·총무'),
+              const SizedBox(height: 8),
+              if (isNew)
+                const MutedText('반을 먼저 저장한 뒤 정할 수 있어요.', style: TextStyle(fontSize: 13))
+              else
+                // 반 정보가 다시 그려질 때(자동 채우기 등) 입력이 지워지지 않게 반 id로만 다시 만들어요
+                LeadersForm(key: ValueKey('leaders-${d.id}'), course: d, onSaved: onLeadersSaved),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -310,7 +350,11 @@ class _DateButton extends StatelessWidget {
         if (picked != null) onPicked(ymd(picked));
       },
       icon: const Icon(Icons.calendar_today_rounded, size: 16),
-      label: Text(d == null ? empty : '${d.year}. ${mdw(d)}'),
+      // 한 줄로만, 그래도 좁으면 글자를 줄여요
+      label: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(d == null ? empty : '${d.year}. ${mdw(d)}', maxLines: 1, softWrap: false),
+      ),
     );
   }
 }
@@ -473,13 +517,17 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
                   children: [
                     Text('${i + 1}주', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                     const SizedBox(width: 10),
-                    Flexible(
-                      child: _DateButton(
-                        value: d.weeks[i].date,
-                        onPicked: (v) => i == 0 ? _setFirstDate(v) : _setWeek(i, d.weeks[i].copyWith(date: v)),
+                    // 날짜 버튼이 남는 폭을 다 써요 (Spacer와 반씩 나누면 좁아져 글자가 꺾였어요)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _DateButton(
+                          value: d.weeks[i].date,
+                          onPicked: (v) => i == 0 ? _setFirstDate(v) : _setWeek(i, d.weeks[i].copyWith(date: v)),
+                        ),
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     const Text('휴강'),
                     Switch(
                       value: d.weeks[i].off,

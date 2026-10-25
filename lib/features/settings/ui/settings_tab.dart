@@ -11,6 +11,7 @@ import '../../../core/models/course.dart';
 import '../../admin/ui/admin_screen.dart';
 import '../../archive/ui/past_books_screen.dart';
 import '../../backup/ui/backup_sheet.dart';
+import '../../profile/ui/name_screen.dart';
 import '../../roster/logic/roster_providers.dart';
 import '../../roster/ui/leader_code.dart';
 import '../../course/logic/course_providers.dart';
@@ -53,8 +54,9 @@ class SettingsTab extends ConsumerWidget {
             context,
             title: '내 이름',
             initialValue: name,
-            label: '본명 (같은 이름이 있으면 A·B·C까지)',
-            hint: '예: 홍길동A',
+            label: '이름',
+            hint: '예: 홍길동',
+            helper: nameHelper,
           );
           if (v != null) await ref.read(myNameProvider.notifier).set(v);
         },

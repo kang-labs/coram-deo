@@ -51,6 +51,13 @@ void main() {
     expect(Member.fromDoc('x', {'name': '홍길동', 'record': 'bad'})!.record, CourseRecord.empty);
   });
 
+  test('출석부 순서: 반장 → 총무 → 가나다순, 역할 글', () {
+    final course = fakeCourse().copyWith(chief: '홍 길동a', treasurer: '김영희');
+    final rows = rosterOrder([_m('1', '이순신', 1), _m('2', '김영희', 2), _m('3', '강감찬', 3), _m('4', '홍길동A', 4)], course);
+    expect([for (final r in rows) r.member.name], ['홍길동A', '김영희', '강감찬', '이순신']);
+    expect([for (final r in rows) r.role], ['반장', '총무', null, null]);
+  });
+
   testWidgets('처음 실행: 이름을 적어야 반 고르기로 넘어감', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

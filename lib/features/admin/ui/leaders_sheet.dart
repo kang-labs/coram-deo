@@ -13,19 +13,38 @@ import '../../../core/models/course.dart';
 import '../../roster/logic/roster_providers.dart';
 
 /// 관리자: 반마다 반장 이름·총무 이름·코드(숫자 4자리, 둘이 같이 씀) 정하기
-Future<void> showLeadersSheet(BuildContext context, Course course) =>
-    showAppSheet<void>(context, scrollable: true, builder: (_) => _LeadersSheet(course: course));
+Future<void> showLeadersSheet(BuildContext context, Course course) => showAppSheet<void>(
+  context,
+  scrollable: true,
+  builder: (sheet) => ListView(
+    shrinkWrap: true,
+    padding: EdgeInsets.fromLTRB(
+      AppLayout.sidePadding,
+      0,
+      AppLayout.sidePadding,
+      16 + MediaQuery.viewInsetsOf(sheet).bottom,
+    ),
+    children: [
+      CardHeader(icon: Icons.badge_rounded, title: '${course.fullTitle} 반장·총무'),
+      const SizedBox(height: 8),
+      LeadersForm(course: course, onSaved: (_, _) => Navigator.pop(sheet)),
+    ],
+  ),
+);
 
-class _LeadersSheet extends ConsumerStatefulWidget {
-  const _LeadersSheet({required this.course});
+/// 반장 이름·총무 이름·코드 입력과 저장 (반 메뉴 창, 반 편집 기본 정보 탭에서 같이 써요).
+/// 저장은 바로 서버에 해요(반 편집의 '저장'과 따로). [onSaved]는 저장한 이름을 알려 줘요.
+class LeadersForm extends ConsumerStatefulWidget {
+  const LeadersForm({super.key, required this.course, this.onSaved});
 
   final Course course;
+  final void Function(String chief, String treasurer)? onSaved;
 
   @override
-  ConsumerState<_LeadersSheet> createState() => _LeadersSheetState();
+  ConsumerState<LeadersForm> createState() => _LeadersFormState();
 }
 
-class _LeadersSheetState extends ConsumerState<_LeadersSheet> {
+class _LeadersFormState extends ConsumerState<LeadersForm> {
   late final _chief = TextEditingController(text: widget.course.chief);
   late final _treasurer = TextEditingController(text: widget.course.treasurer);
   final _code = TextEditingController();
@@ -76,7 +95,7 @@ class _LeadersSheetState extends ConsumerState<_LeadersSheet> {
           .saveLeaders(widget.course, chief: chief, treasurer: treasurer, code: code);
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
-      Navigator.pop(context);
+      widget.onSaved?.call(chief, treasurer);
       messenger.showSnackBar(SnackBar(content: Text('저장했어요. 반장·총무에게 코드 $code 를 알려 주세요.')));
     } on FirebaseException catch (e) {
       if (mounted) await showInfoDialog(context, title: '저장하지 못했어요', body: '권한이나 인터넷 연결을 확인해 주세요.\n(${e.code})');
@@ -87,19 +106,11 @@ class _LeadersSheetState extends ConsumerState<_LeadersSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      shrinkWrap: true,
-      padding: EdgeInsets.fromLTRB(
-        AppLayout.sidePadding,
-        0,
-        AppLayout.sidePadding,
-        16 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CardHeader(icon: Icons.badge_rounded, title: '${widget.course.fullTitle} 반장·총무'),
-        const SizedBox(height: 8),
         const MutedText(
-          '이름은 그 사람이 앱에 적은 이름과 같게 적어 주세요(띄어쓰기는 상관없어요). '
+          '이름은 그 사람이 앱에 적은 이름과 같게 적어 주세요(띄어쓰기·영문 대소문자는 상관없어요). '
           '그 사람이 반을 고를 때 코드를 넣으면 출석부를 볼 수 있어요.\n'
           '이름이나 코드를 바꾸면 지금 반장·총무도 코드를 다시 넣어야 해요.',
           style: TextStyle(fontSize: 13, height: 1.5),
@@ -141,7 +152,7 @@ class _LeadersSheetState extends ConsumerState<_LeadersSheet> {
           ],
         ),
         const SizedBox(height: 8),
-        FilledButton(onPressed: _saving || _loading ? null : _save, child: const Text('저장')),
+        FilledButton(onPressed: _saving || _loading ? null : _save, child: const Text('반장·총무 저장')),
       ],
     );
   }

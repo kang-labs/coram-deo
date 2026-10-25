@@ -148,3 +148,13 @@
 - 로그인 방식: 이메일/비밀번호·익명을 켬(`set_admin_pin.py --providers-only`).
 - 실제 서버 없이 흐름 시험: `firebase emulators:start --only firestore,auth` → `python tool/dev/emu_setup.py`(반 7개, 제자대학2학기 반장 TestChief·코드 4321, 시험 관리자 PIN 135790은 에뮬레이터 전용) → `flutter build apk --debug --dart-define=USE_FIREBASE_EMULATOR=true`(main `_connectEmulators`, 10.0.2.2; debug 매니페스트만 http 허용). 2026-10-25 에뮬레이터에서 반장·틀린 코드·비반장·빈 반 떠나기·관리자·이미지 저장·반장 바꾸면 권한 해제 모두 통과.
 - 남은 결정: 4자리 코드·6자리 관리자 비밀번호 무작위 대입 위험 → App Check(Play 정식 공개 후, GitHub판 정리와 함께) 추천해 둠.
+
+## 다듬기 (2026-10-25 2차)
+
+- 이름 칸: 라벨 '이름', 아래 흐린 안내 `nameHelper`(동명이인 A·B·C까지). 공통 입력 창에 `helper`·`message`·`digitsOnly`.
+- 관리자 비밀번호 바꾸기: 구글로 로그인했을 때만(`signedInWithGoogleProvider` = idToken signInProvider 'google.com') 앱바 열쇠 버튼 → 6자리 두 번 → `user.updatePassword`. 숫자 비밀번호로 들어오면 숨김.
+- 반 편집 기본 정보 맨 아래 '반장·총무' 카드 = `LeadersForm`(반 메뉴 창과 같은 위젯, 바로 서버 저장). 저장하면 편집 화면의 `_draft`·`_baseline` 둘 다 맞춰 '저장하지 않고 나갈까요' 안 뜸. 새 반은 저장 뒤에.
+- 일정표 주 카드: 날짜 버튼을 Expanded+Align(Spacer와 폭 나눠 꺾이던 것), 글자 한 줄 FittedBox.
+- 출석부 순서 `rosterOrder`: 반장 → 총무 → 가나다, 줄 아래 '반장'/'총무'. 관리자 목록이 보이면 지금 학기 반 members를 미리 한 번 get(`adminPrefetchProvider`, 키는 id 이은 글자) → 열 때 캐시가 바로 보임. 관리자 출석부 구독은 닫고 2분 뒤 끝냄.
+- 테마 '다크'(검정·회색, OLED 배터리) 추가. '미드나잇'은 네이비 다크.
+- Play 앱 서명 키 SHA-1·SHA-256 Firebase 등록(이제 4개).

@@ -59,6 +59,7 @@ Future<String?> showTextInputDialog(
   String confirmText = '저장',
   bool allowEmpty = false,
   String? message,
+  String? helper,
   bool digitsOnly = false,
 }) {
   return showDialog<String>(
@@ -72,6 +73,7 @@ Future<String?> showTextInputDialog(
       confirmText: confirmText,
       allowEmpty: allowEmpty,
       message: message,
+      helper: helper,
       digitsOnly: digitsOnly,
     ),
   );
@@ -87,6 +89,7 @@ class _TextInputDialog extends StatefulWidget {
     required this.confirmText,
     required this.allowEmpty,
     this.message,
+    this.helper,
     this.digitsOnly = false,
   });
 
@@ -100,6 +103,9 @@ class _TextInputDialog extends StatefulWidget {
 
   /// 입력 칸 위 안내 글
   final String? message;
+
+  /// 입력 칸 아래 흐린 안내 글
+  final String? helper;
 
   /// 숫자만 (숫자 자판)
   final bool digitsOnly;
@@ -140,7 +146,12 @@ class _TextInputDialogState extends State<_TextInputDialog> {
             keyboardType: widget.digitsOnly ? TextInputType.number : null,
             inputFormatters: widget.digitsOnly ? [FilteringTextInputFormatter.digitsOnly] : null,
             onSubmitted: (_) => _submit(),
-            decoration: InputDecoration(labelText: widget.label, hintText: widget.hint),
+            decoration: InputDecoration(
+              labelText: widget.label,
+              hintText: widget.hint,
+              helperText: widget.helper,
+              helperMaxLines: 3,
+            ),
           ),
         ],
       ),

@@ -12,6 +12,7 @@ import '../../course/data/course_repository.dart';
 import '../../course/logic/course_providers.dart';
 import '../logic/admin_providers.dart';
 import 'course_editor_screen.dart';
+import '../../roster/logic/roster_providers.dart';
 import '../../roster/ui/roster_tab.dart';
 import 'leaders_sheet.dart';
 
@@ -28,6 +29,12 @@ class AdminScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('관리자 모드'),
         actions: [
+          if (isAdmin && (ref.watch(signedInWithGoogleProvider).valueOrNull ?? false))
+            IconButton(
+              tooltip: '관리자 비밀번호 바꾸기',
+              onPressed: () => _changePin(context, ref),
+              icon: const Icon(Icons.key_rounded),
+            ),
           if (user != null)
             IconButton(
               tooltip: '로그아웃',
@@ -59,6 +66,43 @@ class AdminScreen extends ConsumerWidget {
             )
           : const _CourseAdminList(),
     );
+  }
+
+  /// 구글로 로그인한 관리자만: 숫자 6자리 두 번 입력해서 바꿔요
+  Future<void> _changePin(BuildContext context, WidgetRef ref) async {
+    Future<String?> ask(String title) => showTextInputDialog(
+      context,
+      title: title,
+      label: '숫자 6자리',
+      maxLength: 6,
+      digitsOnly: true,
+      confirmText: '다음',
+      helper: '다음부터 관리자 모드에 이 번호로 들어와요.',
+    );
+    final pin = await ask('새 관리자 비밀번호');
+    if (pin == null || !context.mounted) return;
+    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
+      await showInfoDialog(context, body: '숫자 6자리로 정해 주세요.');
+      return;
+    }
+    final again = await ask('한 번 더 입력');
+    if (again == null || !context.mounted) return;
+    if (again != pin) {
+      await showInfoDialog(context, body: '두 번 입력한 번호가 달라요. 다시 해 주세요.');
+      return;
+    }
+    try {
+      await ref.read(authRepositoryProvider).changePin(pin);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('관리자 비밀번호를 바꿨어요.')));
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!context.mounted) return;
+      final body = e.code == 'requires-recent-login'
+          ? '보안을 위해 로그아웃했다가 구글로 다시 로그인한 뒤 바꿔 주세요.'
+          : '바꾸지 못했어요. 인터넷 연결을 확인해 주세요. (${e.code})';
+      await showInfoDialog(context, title: '바꾸지 못했어요', body: body);
+    }
   }
 
   Future<void> _addCourse(BuildContext context, WidgetRef ref) async {
@@ -258,6 +302,8 @@ class _CourseAdminList extends ConsumerWidget {
           for (final c in list)
             if (c.semester < semester) c,
         ];
+        // 지금 학기 반 출석부를 미리 받아 둬요 (열 때 바로 보이게)
+        if (known != null) ref.watch(adminPrefetchProvider([for (final c in now) c.id].join(',')));
         Widget card(Course c) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: _AdminCourseCard(course: c, onAction: (a) => _run(context, ref, a, c, list), labelOf: _label),

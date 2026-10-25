@@ -121,7 +121,23 @@ final myClassMembersProvider = StreamProvider<List<Member>>((ref) {
 });
 
 /// 관리자가 보는 반 사람들
-/// 화면을 닫으면 실시간 구독도 끝내요(사용량·배터리)
-final adminClassMembersProvider = StreamProvider.autoDispose.family<List<Member>, String>(
-  (ref, cid) => ref.watch(adminRosterRepositoryProvider).watchMembers(cid),
-);
+/// 화면을 닫고 2분이 지나면 실시간 구독을 끝내요(사용량·배터리). 그 안에 다시 열면 바로 보여요.
+final adminClassMembersProvider = StreamProvider.autoDispose.family<List<Member>, String>((ref, cid) {
+  final link = ref.keepAlive();
+  Timer? timer;
+  ref.onCancel(() => timer = Timer(const Duration(minutes: 2), link.close));
+  ref.onResume(() => timer?.cancel());
+  ref.onDispose(() => timer?.cancel());
+  return ref.watch(adminRosterRepositoryProvider).watchMembers(cid);
+});
+
+/// 관리자 반 목록이 보일 때 지금 학기 반들의 기록을 한 번씩 미리 받아 둬요.
+/// 키는 반 id를 쉼표로 이은 글자라, 목록이 그대로면 다시 그려져도 한 번만 받아요.
+final adminPrefetchProvider = FutureProvider.autoDispose.family<void, String>((ref, joinedIds) async {
+  if (!_firebaseReady) return;
+  final repo = ref.watch(adminRosterRepositoryProvider);
+  await Future.wait([
+    for (final id in joinedIds.split(','))
+      if (id.isNotEmpty) repo.prefetchMembers(id),
+  ]);
+});

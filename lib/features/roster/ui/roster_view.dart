@@ -37,23 +37,26 @@ class _RosterViewState extends ConsumerState<RosterView> {
 
   Course get _c => widget.course;
 
-  RecordGrid _grid(List<Member> members, {required GridLayoutMode mode, GridDensity density = GridDensity.regular}) =>
-      RecordGrid(
-        items: _c.items,
-        headerLabel: '이름',
-        firstColumnWidth: 84,
-        mode: mode,
-        density: density,
-        rows: [for (final m in members) RecordGridRow(title: m.name)],
-        cellBuilder: (i, item, part, metrics) => RecordCellView.fromRecord(
-          members[i].record,
-          week: _week + 1,
-          item: item,
-          part: part,
-          noteTitle: '${members[i].name} 사유',
-          metrics: metrics,
-        ),
-      );
+  RecordGrid _grid(List<Member> unsorted, {required GridLayoutMode mode, GridDensity density = GridDensity.regular}) {
+    final rows = rosterOrder(unsorted, _c);
+    final members = [for (final r in rows) r.member];
+    return RecordGrid(
+      items: _c.items,
+      headerLabel: '이름',
+      firstColumnWidth: 84,
+      mode: mode,
+      density: density,
+      rows: [for (final r in rows) RecordGridRow(title: r.member.name, subtitle: r.role)],
+      cellBuilder: (i, item, part, metrics) => RecordCellView.fromRecord(
+        members[i].record,
+        week: _week + 1,
+        item: item,
+        part: part,
+        noteTitle: '${members[i].name} 사유',
+        metrics: metrics,
+      ),
+    );
+  }
 
   Future<void> _save(List<Member> members) {
     final now = DateTime.now();
@@ -129,7 +132,7 @@ class _RosterViewState extends ConsumerState<RosterView> {
             ),
             const SizedBox(height: 12),
             MutedText(
-              '${members.length}명 · 이름 가나다순 · 보기만 할 수 있어요.${wide ? '' : ' 폰을 가로로 돌리면 표가 한눈에 보여요.'}',
+              '${members.length}명 · 반장·총무 먼저, 나머지는 가나다순 · 보기만 할 수 있어요.${wide ? '' : ' 폰을 가로로 돌리면 표가 한눈에 보여요.'}',
               style: const TextStyle(fontSize: 13),
             ),
             if (widget.canSave) ...[
