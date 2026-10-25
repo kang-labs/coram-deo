@@ -408,7 +408,7 @@ class _SemesterCard extends ConsumerWidget {
           const SizedBox(height: 8),
           MutedText(
             next.isEmpty
-                ? '지금은 $semester학기예요. 먼저 다음 학기 반을 만들고 날짜를 넣은 뒤 새 학기를 시작해요.'
+                ? '${semester == 0 ? '아직 학기를 넘긴 적이 없어요' : '지금은 $semester번째 학기예요'}. 먼저 다음 학기 반을 만들고 날짜를 넣은 뒤 새 학기를 시작해요.'
                 : "다음 학기 반 날짜를 다 넣었으면 새 학기를 시작해요. 빠진 반은 반 메뉴의 '다음 기수로 복사'로 더해요.",
             style: const TextStyle(fontSize: 13),
           ),

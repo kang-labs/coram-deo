@@ -146,3 +146,5 @@
 - 표: `features/table/ui/record_grid.dart` 공통 표(`RecordGrid`, scroll/fit/full, regular/compact), 가로(폭>높이 또는 600dp↑)는 compact fit, 세로는 밀어 보기 + '이미지로 저장'(내 표만, 이름 들어감, `gal` 2.3.3, 웹은 file_picker 내려받기). 가로일 때 제목줄 44로 낮춤.
 - 규칙 시험: `firebase emulators:exec --only firestore "python tool/dev/rules_test.py"` (JAVA_HOME = Android Studio jbr). 24/24.
 - 로그인 방식: 이메일/비밀번호·익명을 켬(`set_admin_pin.py --providers-only`).
+- 실제 서버 없이 흐름 시험: `firebase emulators:start --only firestore,auth` → `python tool/dev/emu_setup.py`(반 7개, 제자대학2학기 반장 TestChief·코드 4321, 시험 관리자 PIN 135790은 에뮬레이터 전용) → `flutter build apk --debug --dart-define=USE_FIREBASE_EMULATOR=true`(main `_connectEmulators`, 10.0.2.2; debug 매니페스트만 http 허용). 2026-10-25 에뮬레이터에서 반장·틀린 코드·비반장·빈 반 떠나기·관리자·이미지 저장·반장 바꾸면 권한 해제 모두 통과.
+- 남은 결정: 4자리 코드·6자리 관리자 비밀번호 무작위 대입 위험 → App Check(Play 정식 공개 후, GitHub판 정리와 함께) 추천해 둠.
