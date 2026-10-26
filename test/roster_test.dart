@@ -120,11 +120,14 @@ void main() {
     expect(find.textContaining('출석부 이미지로 저장'), findsOneWidget);
   });
 
-  testWidgets('출석부: 관리자만 이름을 눌러 지우기 확인 창', (tester) async {
+  testWidgets('출석부: 관리자만 번호 보기·이름 눌러 돌려주기/지우기 창', (tester) async {
     tester.view.physicalSize = const Size(1080, 4000);
     tester.view.devicePixelRatio = 2.7;
     addTearDown(tester.view.reset);
-    final members = latestByName([_m('1', '이순신', 1)]);
+    final members = latestByName([
+      _m('newUid1234', '이순신', 9),
+      _m('oldUid5678', '이순신', 1, CourseRecord.empty.withValue(6, 'attend', 'att', 'o')),
+    ]);
     Future<void> pump(bool canRemove) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -132,7 +135,7 @@ void main() {
           child: MaterialApp(
             theme: AppTheme.of(AppThemeId.fallback),
             home: Scaffold(
-              body: RosterView(course: fakeCourse(), members: AsyncData(members), canRemove: canRemove),
+              body: RosterView(course: fakeCourse(), members: AsyncData(members), canManage: canRemove),
             ),
           ),
         ),
@@ -145,15 +148,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('지울까요'), findsNothing);
     expect(find.textContaining('보기만 할 수 있어요'), findsOneWidget);
+    expect(find.textContaining('newUid'), findsNothing);
 
     await pump(true);
-    expect(find.textContaining('이름을 누르면 출석부에서 지울 수 있어요'), findsOneWidget);
+    expect(find.text('newUid · 예전 1'), findsOneWidget);
+    expect(find.textContaining('예전 기록 돌려주기·지우기'), findsOneWidget);
     await tester.tap(find.text('이순신'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('같은 이름 예전 기록 1개'), findsOneWidget);
+    expect(find.textContaining('번호 oldUid'), findsOneWidget);
+    expect(find.text('예전 기록 돌려주기'), findsOneWidget);
+    await tester.tap(find.text('출석부에서 지우기'));
     await tester.pumpAndSettle();
     expect(find.text('이순신 님을 출석부에서 지울까요?'), findsOneWidget);
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(find.textContaining('지울까요'), findsNothing);
+  });
+
+  test('같은 이름 예전 문서는 older에 최근 것 먼저, 기록 합치기는 빈 칸만', () {
+    final a = CourseRecord.empty.withValue(1, 'attend', 'att', 'o');
+    final b = CourseRecord.empty.withValue(1, 'attend', 'att', 'x').withValue(2, 'attend', 'att', 'late');
+    final list = latestByName([_m('old', '홍길동', 1, b), _m('new', '홍길동', 9, a), _m('mid', '홍 길동', 5)]);
+    expect(list.single.uid, 'new');
+    expect([for (final o in list.single.older) o.uid], ['mid', 'old']);
+    final merged = a.fillFrom(b);
+    expect(merged.value(1, 'attend', 'att'), 'o'); // 이미 체크한 칸은 그대로
+    expect(merged.value(2, 'attend', 'att'), 'late'); // 빈 칸만 채움
+    expect(merged.weekCount, 2);
+    expect(a.fillFrom(CourseRecord.empty), a);
+    expect(shortUid('abcdefghij'), 'abcdef');
   });
 
   test('반장·총무 코드 물을 때: 이름이 지정됐고, 아직 인정 안 됐을 때만', () async {

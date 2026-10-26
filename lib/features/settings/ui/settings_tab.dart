@@ -12,6 +12,7 @@ import '../../admin/ui/admin_screen.dart';
 import '../../archive/ui/past_books_screen.dart';
 import '../../backup/ui/backup_sheet.dart';
 import '../../profile/ui/name_screen.dart';
+import '../../roster/data/roster_repository.dart' show shortUid;
 import '../../roster/logic/roster_providers.dart';
 import '../../roster/ui/leader_code.dart';
 import '../../course/logic/course_providers.dart';
@@ -32,6 +33,7 @@ class SettingsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final name = ref.watch(myNameProvider);
+    final uid = ref.watch(memberUidProvider).valueOrNull;
     final theme = ref.watch(themeIdProvider);
     final pastCount = ref.watch(pastBooksProvider.select((b) => b.length));
     // 반장·총무로 정해졌는데 아직 코드를 안 넣었을 때만 보여요
@@ -48,7 +50,11 @@ class SettingsTab extends ConsumerWidget {
         icon: Icons.person_rounded,
         tone: Tone.accent,
         title: '내 이름',
-        subtitle: name.isEmpty ? '본명을 적어 주세요' : '$name · 반장·총무가 출석부에서 이 이름으로 봐요',
+        subtitle: name.isEmpty
+            ? '본명을 적어 주세요'
+            : '$name · 반장·총무가 출석부에서 이 이름으로 봐요'
+                  // 동명이인일 때 관리자 출석부의 번호와 맞춰 볼 수 있게
+                  '${uid == null ? '' : '\n내 번호 ${shortUid(uid)}'}',
         onTap: () async {
           final v = await showTextInputDialog(
             context,

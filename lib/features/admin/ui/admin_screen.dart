@@ -304,6 +304,8 @@ class _CourseAdminList extends ConsumerWidget {
         ];
         // 지금 학기 반 출석부를 미리 받아 둬요 (열 때 바로 보이게)
         if (known != null) ref.watch(adminPrefetchProvider([for (final c in now) c.id].join(',')));
+        // 2년 지난 서버 사본 정리 (하루 한 번)
+        ref.watch(adminStaleCleanupProvider([for (final c in list) c.id].join(',')));
         Widget card(Course c) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: _AdminCourseCard(course: c, onAction: (a) => _run(context, ref, a, c, list), labelOf: _label),

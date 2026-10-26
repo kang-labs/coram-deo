@@ -157,5 +157,8 @@
 - 일정표 주 카드: 날짜 버튼을 Expanded+Align(Spacer와 폭 나눠 꺾이던 것), 글자 한 줄 FittedBox.
 - 출석부 순서 `rosterOrder`: 반장 → 총무 → 가나다, 줄 아래 '반장'/'총무'. 관리자 목록이 보이면 지금 학기 반 members를 미리 한 번 get(`adminPrefetchProvider`, 키는 id 이은 글자) → 열 때 캐시가 바로 보임. 관리자 출석부 구독은 닫고 2분 뒤 끝냄.
 - 관리자 사람 지우기 (2026-10-26, 1.2.2): 관리자 출석부에서 이름 누르기 → 확인 → `removeMembersNamed`가 같은 이름(normalizeName) members 문서를 서버에서 읽어 모두 지우고 leaders/{uid}도 같이 지움(옛 uid 문서가 대신 나타나지 않게). 그 사람 폰 기록은 그대로, 내용이 바뀌어 다시 올리면 다시 생김(sent 캐시 때문에 바로는 안 생김). 그림 저장(full)에는 누르기 없음.
+- 지워진 폰 (1.2.2): HomeShell이 앱 열 때·돌아올 때(15분에 한 번) `checkRemovedByAdmin` — `sent.{cid}`가 있는데 서버 members/{uid}가 없으면(서버에서만 읽음) 안내 후 반 고르기. 기록은 폰에 그대로.
+- 예전 기록 돌려주기 (1.2.2, 방법 A): `latestByName`이 같은 이름 나머지를 `Member.older`(최근 것 먼저)에. 관리자 출석부 이름 아래 `shortUid`(uid 앞 6자리)·'예전 n', 이름 누르면 `showMemberSheet`(번호·마지막 올린 날·주 수, 돌려주기/지우기). `giveBackOlder` = older 기록 합쳐(+안 가져간 상자) `restores/{새 uid}`에 넣고 older 문서·leaders 지움(batch). 폰은 `takeRestoredRecord` → `CourseRecord.fillFrom`(빈 칸만) 저장 후 상자 삭제. 규칙 restores: 관리자만 쓰기, 본인·관리자 읽기·삭제. 설정 '내 이름' 아래 '내 번호'.
+- 서버 사본 보관 2년: 무료 요금제라 Cloud Functions 대신 관리자 화면이 하루 한 번(`staleCleanedAt`) `deleteStale` — updatedAt 2년 지난 members(+leaders)와 at 2년 지난 restores 삭제. 원본은 폰에.
 - 테마 '다크'(검정·회색, OLED 배터리) 추가. '미드나잇'은 네이비 다크.
 - Play 앱 서명 키 SHA-1·SHA-256 Firebase 등록(이제 4개).

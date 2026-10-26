@@ -137,6 +137,14 @@ def main() -> None:
     check("관리자: 반 사람 지우기", req("DELETE", f"{BASE}/courses/c1/members/u1", admin), True)
     check("관리자: 반장 인정 풀기", req("DELETE", f"{BASE}/courses/c1/leaders/u3", admin), True)
     check("관리자: 없는 문서 지우기(괜찮음)", req("DELETE", f"{BASE}/courses/c1/leaders/none", admin), True)
+    back = {"record": {"6": {"attend": {"att": "o"}}}, "fromName": "이순신"}
+    check("익명: 돌려주기 상자 직접 넣기", put("courses/c1/restores/u1", back, u1, "at"), False)
+    check("관리자: 예전 기록 돌려주기", put("courses/c1/restores/u1", back, admin, "at"), True)
+    check("관리자: 돌려주기에 모르는 필드", put("courses/c1/restores/u1", {**back, "x": 1}, admin, "at"), False)
+    check("받을 폰: 돌려받은 기록 읽기", get("courses/c1/restores/u1", u1), True)
+    check("다른 폰: 남의 돌려받은 기록 읽기", get("courses/c1/restores/u1", u2), False)
+    check("다른 폰: 남의 상자 지우기", req("DELETE", f"{BASE}/courses/c1/restores/u1", u2), False)
+    check("받을 폰: 가져간 뒤 상자 지우기", req("DELETE", f"{BASE}/courses/c1/restores/u1", u1), True)
     check("이메일 확인 안 된 관리자 흉내: 코드 읽기", get("courses/c1/private/codes", fake_admin), False)
     check("관리자: 반 저장(반장 정보 유지)", put("courses/c1", COURSE, admin, "updatedAt"), True)
     no_leaders = {k: v for k, v in COURSE.items() if k != "leaders"}

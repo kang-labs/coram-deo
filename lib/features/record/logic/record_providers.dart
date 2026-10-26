@@ -67,4 +67,13 @@ class CourseRecordController extends Notifier<CourseRecord> {
     state = next;
     ref.read(localStoreProvider).saveRecord(id, next);
   }
+
+  /// 빈 칸만 [other]로 채우고 저장해요 (관리자가 돌려준 예전 기록). 고른 반이 [courseId]가 아니면 아무것도 안 해요.
+  Future<void> fillFrom(String courseId, CourseRecord other) async {
+    if (_courseId != courseId) return;
+    final next = state.fillFrom(other);
+    if (next == state) return;
+    state = next;
+    await ref.read(localStoreProvider).saveRecord(courseId, next);
+  }
 }

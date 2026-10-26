@@ -16,7 +16,7 @@ class RosterTab extends ConsumerWidget {
       RosterView(course: course, members: ref.watch(myClassMembersProvider));
 }
 
-/// 관리자: 반 하나의 통합 출석부 (주차마다 보기·이미지로 저장, 이름을 눌러 사람 지우기)
+/// 관리자: 반 하나의 통합 출석부 (주차마다 보기·이미지로 저장, 이름을 눌러 예전 기록 돌려주기·지우기)
 class AdminRosterScreen extends ConsumerWidget {
   const AdminRosterScreen({super.key, required this.course});
 
@@ -29,7 +29,7 @@ class AdminRosterScreen extends ConsumerWidget {
       course: course,
       members: ref.watch(adminClassMembersProvider(course.id)),
       canSave: true,
-      canRemove: true,
+      canManage: true,
     ),
   );
 }

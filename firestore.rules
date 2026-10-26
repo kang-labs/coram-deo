@@ -100,6 +100,15 @@ service cloud.firestore {
         // 본인: 반을 잘못 골랐다가 바꿀 때 빈 기록 지우기
         allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
       }
+
+      // 관리자가 돌려주는 예전 기록 (문서 id = 받을 폰의 익명 uid, 앱을 다시 깐 사람).
+      // 관리자만 넣고, 그 폰만 읽고 가져간 뒤 지워요.
+      match /restores/{uid} {
+        allow read, delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+        allow create, update: if isAdmin()
+          && request.resource.data.keys().hasOnly(['record', 'fromName', 'at'])
+          && request.resource.data.record is map && request.resource.data.record.size() <= 60;
+      }
     }
   }
 }

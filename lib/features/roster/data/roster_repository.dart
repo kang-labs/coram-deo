@@ -10,12 +10,18 @@ import '../../record/data/course_record.dart';
 /// 반 사람 한 명의 출석부 (서버 `courses/{반}/members/{익명 uid}`)
 @immutable
 class Member {
-  const Member({required this.uid, required this.name, required this.record, this.updatedAt});
+  const Member({required this.uid, required this.name, required this.record, this.updatedAt, this.older = const []});
 
   final String uid;
   final String name;
   final CourseRecord record;
   final DateTime? updatedAt;
+
+  /// 같은 이름으로 남은 예전 문서들 (최근 것 먼저). 앱을 다시 깔았거나 동명이인일 때 생겨요.
+  final List<Member> older;
+
+  Member withOlder(List<Member> older) =>
+      Member(uid: uid, name: name, record: record, updatedAt: updatedAt, older: older);
 
   /// 서버 문서 하나. 모양이 다르면 null(건너뜀).
   static Member? fromDoc(String uid, Map<String, dynamic> m) {
@@ -31,18 +37,22 @@ class Member {
   }
 }
 
-/// 같은 이름(띄어쓰기 무시)은 가장 최근 것만 남기고 이름 가나다순으로.
+/// 같은 이름(띄어쓰기 무시)은 가장 최근 것만 남기고 이름 가나다순으로. 나머지는 [Member.older]에 담아요.
 /// 앱을 다시 깔면 익명 uid가 바뀌어 같은 사람 문서가 둘이 될 수 있어서예요.
 List<Member> latestByName(Iterable<Member> members) {
-  final byName = <String, Member>{};
+  final byName = <String, List<Member>>{};
   for (final m in members) {
-    final key = normalizeName(m.name);
-    final old = byName[key];
-    final newer = old == null || (m.updatedAt ?? DateTime(0)).isAfter(old.updatedAt ?? DateTime(0));
-    if (newer) byName[key] = m;
+    byName.putIfAbsent(normalizeName(m.name), () => []).add(m);
   }
-  return byName.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  DateTime at(Member m) => m.updatedAt ?? DateTime(0);
+  return [
+    for (final group in byName.values)
+      (group..sort((a, b) => at(b).compareTo(at(a)))).first.withOlder(List.unmodifiable(group.skip(1))),
+  ]..sort((a, b) => a.name.compareTo(b.name));
 }
+
+/// 익명 로그인 번호 앞 6자리 (동명이인을 구별하려고 작게 보여 줘요)
+String shortUid(String uid) => uid.length <= 6 ? uid : uid.substring(0, 6);
 
 /// 출석부 순서: 반장 → 총무 → 나머지 이름 가나다순. 반장·총무 줄 이름 아래에 보일 역할 글도 같이.
 List<({Member member, String? role})> rosterOrder(List<Member> members, Course course) {
@@ -84,6 +94,19 @@ class RosterRepository {
 
   /// 내 문서 지우기 (반을 잘못 골랐다 바꿀 때, 기록이 비어 있을 때만 앱이 불러요)
   Future<void> removeMine(String cid, String uid) => _course(cid).collection('members').doc(uid).delete();
+
+  DocumentReference<Map<String, dynamic>> _restore(String cid, String uid) =>
+      _course(cid).collection('restores').doc(uid);
+
+  /// 관리자가 돌려준 예전 기록 (없으면 null). 오프라인 캐시로 판단하지 않게 서버에서만 읽어요(실패하면 예외).
+  Future<CourseRecord?> readRestore(String cid, String uid) async {
+    final d = await _restore(cid, uid).get(const GetOptions(source: Source.server));
+    final r = d.data()?['record'];
+    return d.exists ? (r is Map ? CourseRecord.fromJson(jsonEncode(r)) : CourseRecord.empty) : null;
+  }
+
+  /// 돌려받은 기록을 폰에 합친 뒤 상자를 비워요
+  Future<void> clearRestore(String cid, String uid) => _restore(cid, uid).delete();
 
   /// 서버에 내 문서가 아직 있는지. 오프라인 캐시로 잘못 판단하지 않게 서버에서만 읽어요(실패하면 예외).
   Future<bool> mineExists(String cid, String uid) async =>
@@ -143,6 +166,55 @@ class RosterRepository {
       count++;
     }
     if (count > 0) await batch.commit();
+    return count;
+  }
+
+  /// 관리자: 같은 이름 예전 문서들의 기록을 [to]의 폰에 돌려줘요. 그 폰이 다음에 앱을 열면 빈 칸만 채워요.
+  /// 예전 기록(최근 것 먼저)을 하나로 합치고, 아직 안 가져간 돌려주기가 있으면 그것도 합쳐요.
+  /// 한 번에(batch) 돌려주기 상자를 채우고 예전 문서와 그 반장·총무 인정을 지워요.
+  Future<void> giveBackOlder(String cid, Member to) async {
+    var merged = CourseRecord.empty;
+    for (final o in to.older) {
+      merged = merged.fillFrom(o.record);
+    }
+    final pending = await _restore(cid, to.uid).get(const GetOptions(source: Source.server));
+    final prev = pending.data()?['record'];
+    if (prev is Map) merged = merged.fillFrom(CourseRecord.fromJson(jsonEncode(prev)));
+    final batch = _db.batch();
+    batch.set(_restore(cid, to.uid), {
+      'record': jsonDecode(merged.toJson()),
+      'fromName': to.name,
+      'at': FieldValue.serverTimestamp(),
+    });
+    for (final o in to.older) {
+      batch.delete(_course(cid).collection('members').doc(o.uid));
+      batch.delete(_course(cid).collection('leaders').doc(o.uid));
+    }
+    await batch.commit();
+  }
+
+  /// 관리자: 마지막으로 올린 지 [cutoff]보다 오래된 사본(members)과 돌려주기 상자를 지워요.
+  /// 원본은 각자 폰에 있어서 서버 사본만 정리해요. 지운 문서 수를 돌려줘요.
+  Future<int> deleteStale(Iterable<String> cids, DateTime cutoff) async {
+    final at = Timestamp.fromDate(cutoff);
+    var count = 0;
+    for (final cid in cids) {
+      final members = await _course(cid).collection('members').where('updatedAt', isLessThan: at).get();
+      final restores = await _course(cid).collection('restores').where('at', isLessThan: at).get();
+      final refs = [
+        for (final d in members.docs) ...[d.reference, _course(cid).collection('leaders').doc(d.id)],
+        for (final d in restores.docs) d.reference,
+      ];
+      // batch 하나는 500개까지라 나눠서 지워요
+      for (var i = 0; i < refs.length; i += 450) {
+        final batch = _db.batch();
+        for (final r in refs.skip(i).take(450)) {
+          batch.delete(r);
+        }
+        await batch.commit();
+      }
+      count += members.size + restores.size;
+    }
     return count;
   }
 

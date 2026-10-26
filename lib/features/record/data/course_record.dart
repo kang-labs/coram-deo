@@ -65,6 +65,27 @@ class CourseRecord {
 
   bool get isEmpty => _weeks.isEmpty;
 
+  /// 기록이 있는 주 수
+  int get weekCount => _weeks.length;
+
+  /// 빈 칸만 [other] 값으로 채운 새 기록. 이미 체크한 칸은 그대로 둬요(관리자가 돌려준 예전 기록을 합칠 때).
+  CourseRecord fillFrom(CourseRecord other) {
+    if (other.isEmpty) return this;
+    final weeks = {for (final e in _weeks.entries) e.key: Map.of(e.value)};
+    for (final w in other._weeks.entries) {
+      final items = weeks.putIfAbsent(w.key, () => {});
+      for (final i in w.value.entries) {
+        final parts = Map<String, Object>.of(items[i.key] ?? const {});
+        for (final p in i.value.entries) {
+          parts.putIfAbsent(p.key, () => p.value);
+        }
+        items[i.key] = Map.unmodifiable(parts);
+      }
+      weeks[w.key] = Map.unmodifiable(items);
+    }
+    return CourseRecord(Map.unmodifiable(weeks));
+  }
+
   static bool _isEmpty(Object? v) => v == null || v == 0 || v == '';
 
   static bool _validValue(Object? v) => (v is String || v is int) && !_isEmpty(v);

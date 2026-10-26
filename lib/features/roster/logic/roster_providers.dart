@@ -97,6 +97,50 @@ Future<bool> checkRemovedByAdmin(WidgetRef ref) async {
   }
 }
 
+/// 관리자가 돌려준 예전 기록이 있으면 지금 반 기록의 빈 칸에 채우고 true.
+/// 폰에 먼저 저장한 다음 서버 상자를 비워요(비우기가 실패해도 다음에 다시 채우기만 해서 괜찮아요).
+Future<bool> takeRestoredRecord(WidgetRef ref) async {
+  final cid = ref.read(selectedCourseIdProvider);
+  if (!_firebaseReady || cid == null) return false;
+  final repo = ref.read(rosterRepositoryProvider);
+  final records = ref.read(courseRecordProvider.notifier);
+  try {
+    final uid = await ref.read(memberUidProvider.future);
+    if (uid == null) return false;
+    final restored = await repo.readRestore(cid, uid);
+    if (restored == null) return false;
+    await records.fillFrom(cid, restored);
+    await repo.clearRestore(cid, uid);
+    return true;
+  } catch (e) {
+    debugPrint('돌려받은 기록 확인 실패(다음에 다시): $e');
+    return false;
+  }
+}
+
+/// 서버 사본을 남겨 두는 기간. 지난 사본은 관리자 화면이 하루 한 번 지워요(원본은 각자 폰에 남아요).
+const memberCopyKeep = Duration(days: 365 * 2);
+
+/// 관리자 화면이 열려 있을 때 하루 한 번, 오래된 사본을 지워요. 키는 반 id를 쉼표로 이은 글자.
+/// 무료 요금제라 서버 자동 삭제(Cloud Functions) 대신 관리자 앱이 해요.
+final adminStaleCleanupProvider = FutureProvider.autoDispose.family<void, String>((ref, joinedIds) async {
+  if (!_firebaseReady) return;
+  final prefs = ref.read(sharedPreferencesProvider);
+  const key = 'staleCleanedAt';
+  final now = DateTime.now();
+  final last = DateTime.tryParse(prefs.getString(key) ?? '');
+  if (last != null && now.difference(last) < const Duration(days: 1)) return;
+  try {
+    final n = await ref
+        .read(adminRosterRepositoryProvider)
+        .deleteStale(joinedIds.split(',').where((id) => id.isNotEmpty), now.subtract(memberCopyKeep));
+    await prefs.setString(key, now.toIso8601String());
+    if (n > 0) debugPrint('오래된 사본 $n개 지움');
+  } catch (e) {
+    debugPrint('오래된 사본 정리 실패(다음에 다시): $e');
+  }
+});
+
 /// 위 함수를 화면에서 부를 수 있게
 final leaveCourseIfEmptyProvider = Provider<Future<void> Function(String cid)>(
   (ref) =>
