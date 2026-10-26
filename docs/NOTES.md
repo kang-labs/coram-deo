@@ -163,3 +163,4 @@
 - 서버 사본 보관 2년: 무료 요금제라 Cloud Functions 대신 관리자 화면이 하루 한 번(`staleCleanedAt`) `deleteStale` — updatedAt 2년 지난 members(+leaders)와 at 2년 지난 restores 삭제. 원본은 폰에.
 - 테마 '다크'(검정·회색, OLED 배터리) 추가. '미드나잇'은 네이비 다크.
 - Play 앱 서명 키 SHA-1·SHA-256 Firebase 등록(이제 4개).
+- 기기 종류 (1.2.6, 2026-10-26, 시험 운영 기간만): `lib/core/device_kind.dart` `collectDeviceKind`가 true면 members에 `device`(android/iphone/web) 같이 올림(sent payload에 넣어 새 버전은 한 번 다시 올림), 사용자 관리 줄 앞에 표시. 정식 출시 때 false + privacy.html '기기 종류' 줄·삭제 목록 '(기기 종류 포함)' 지우기. 규칙은 device 없어도 받음.
