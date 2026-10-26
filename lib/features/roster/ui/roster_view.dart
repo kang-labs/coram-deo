@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/dialogs.dart';
 import '../../../app/layout.dart';
 import '../../../app/widgets.dart';
 import '../../../core/dates.dart';
@@ -11,18 +12,27 @@ import '../../week/logic/week_math.dart';
 import '../../week/logic/week_providers.dart';
 import '../../week/ui/week_range_text.dart';
 import '../data/roster_repository.dart';
+import '../logic/roster_providers.dart';
 
 /// 넓은 화면(가로·폴드 펼침) 기준. 체크표와 같게.
 const double _wideWidth = 600;
 
 /// 반 출석부: 주차를 고르면 반 사람들(가나다순) × 항목 표. 보기만 해요.
-/// 반장·총무 탭과 관리자 화면이 같이 써요. [canSave]면(관리자) 그 주 표를 그림으로 저장할 수 있어요.
+/// 반장·총무 탭과 관리자 화면이 같이 써요. [canSave]면(관리자) 그 주 표를 그림으로 저장할 수 있고,
+/// [canRemove]면(관리자) 이름을 눌러 잘못 들어온 사람을 출석부에서 지울 수 있어요.
 class RosterView extends ConsumerStatefulWidget {
-  const RosterView({super.key, required this.course, required this.members, this.canSave = false});
+  const RosterView({
+    super.key,
+    required this.course,
+    required this.members,
+    this.canSave = false,
+    this.canRemove = false,
+  });
 
   final Course course;
   final AsyncValue<List<Member>> members;
   final bool canSave;
+  final bool canRemove;
 
   @override
   ConsumerState<RosterView> createState() => _RosterViewState();
@@ -46,7 +56,14 @@ class _RosterViewState extends ConsumerState<RosterView> {
       firstColumnWidth: 84,
       mode: mode,
       density: density,
-      rows: [for (final r in rows) RecordGridRow(title: r.member.name, subtitle: r.role)],
+      rows: [
+        for (final r in rows)
+          RecordGridRow(
+            title: r.member.name,
+            subtitle: r.role,
+            onTap: widget.canRemove && mode != GridLayoutMode.full ? () => _remove(r.member) : null,
+          ),
+      ],
       cellBuilder: (i, item, part, metrics) => RecordCellView.fromRecord(
         members[i].record,
         week: _week + 1,
@@ -56,6 +73,26 @@ class _RosterViewState extends ConsumerState<RosterView> {
         metrics: metrics,
       ),
     );
+  }
+
+  /// 관리자: 이 사람을 출석부에서 지워요. 그 사람 폰의 체크 기록은 그대로예요.
+  Future<void> _remove(Member m) async {
+    final ok = await showConfirmDialog(
+      context,
+      title: '${m.name} 님을 출석부에서 지울까요?',
+      body:
+          '이 반 출석부에서 빠지고, 반장·총무로 인정돼 있었다면 그것도 풀려요. 그 사람 폰의 체크 기록은 지워지지 않아요.\n'
+          '그 사람이 이 반을 고른 채로 다시 체크하면 출석부에 다시 올라와요.',
+      ok: '지우기',
+    );
+    if (!ok || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(adminRosterRepositoryProvider).removeMembersNamed(_c.id, m.name);
+      messenger.showSnackBar(SnackBar(content: Text('${m.name} 님을 출석부에서 지웠어요.')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('지우지 못했어요. 인터넷 연결을 확인해 주세요. ($e)')));
+    }
   }
 
   Future<void> _save(List<Member> members) {
@@ -132,7 +169,9 @@ class _RosterViewState extends ConsumerState<RosterView> {
             ),
             const SizedBox(height: 12),
             MutedText(
-              '${members.length}명 · 반장·총무 먼저, 나머지는 가나다순 · 보기만 할 수 있어요.${wide ? '' : ' 폰을 가로로 돌리면 표가 한눈에 보여요.'}',
+              '${members.length}명 · 반장·총무 먼저, 나머지는 가나다순 · '
+              '${widget.canRemove ? '이름을 누르면 출석부에서 지울 수 있어요.' : '보기만 할 수 있어요.'}'
+              '${wide ? '' : ' 폰을 가로로 돌리면 표가 한눈에 보여요.'}',
               style: const TextStyle(fontSize: 13),
             ),
             if (widget.canSave) ...[

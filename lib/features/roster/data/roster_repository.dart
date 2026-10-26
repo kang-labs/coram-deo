@@ -123,6 +123,25 @@ class RosterRepository {
 
   DocumentReference<Map<String, dynamic>> _codes(String cid) => _course(cid).collection('private').doc('codes');
 
+  /// 출석부에서 사람 지우기. 이 이름(띄어쓰기·대소문자 무시)으로 올라온 문서를 모두 지워요.
+  /// 앱을 다시 깔아 생긴 옛 문서도 같이 지워야 옛 기록이 대신 나타나지 않아요. 반장·총무 인정도 같이 풀어요.
+  /// 오프라인 캐시에 없는 문서를 놓치지 않게 서버에서 읽어요. 지운 문서 수를 돌려줘요.
+  Future<int> removeMembersNamed(String cid, String name) async {
+    final key = normalizeName(name);
+    final docs = await _course(cid).collection('members').get(const GetOptions(source: Source.server));
+    final batch = _db.batch();
+    var count = 0;
+    for (final d in docs.docs) {
+      final v = d.data()['name'];
+      if (v is! String || normalizeName(v) != key) continue;
+      batch.delete(d.reference);
+      batch.delete(_course(cid).collection('leaders').doc(d.id));
+      count++;
+    }
+    if (count > 0) await batch.commit();
+    return count;
+  }
+
   /// 반장·총무 코드 (관리자만 읽을 수 있어요). 없으면 ''.
   Future<String> readCode(String cid) async {
     final d = await _codes(cid).get();

@@ -133,6 +133,10 @@ def main() -> None:
 
     check("관리자: 코드 읽기", get("courses/c1/private/codes", admin), True)
     check("관리자: 반 사람 목록 읽기", list_("courses/c1/members", admin), True)
+    check("반장: 남의 문서 지우기", req("DELETE", f"{BASE}/courses/c1/members/u1", u2), False)
+    check("관리자: 반 사람 지우기", req("DELETE", f"{BASE}/courses/c1/members/u1", admin), True)
+    check("관리자: 반장 인정 풀기", req("DELETE", f"{BASE}/courses/c1/leaders/u3", admin), True)
+    check("관리자: 없는 문서 지우기(괜찮음)", req("DELETE", f"{BASE}/courses/c1/leaders/none", admin), True)
     check("이메일 확인 안 된 관리자 흉내: 코드 읽기", get("courses/c1/private/codes", fake_admin), False)
     check("관리자: 반 저장(반장 정보 유지)", put("courses/c1", COURSE, admin, "updatedAt"), True)
     no_leaders = {k: v for k, v in COURSE.items() if k != "leaders"}

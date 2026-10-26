@@ -120,6 +120,42 @@ void main() {
     expect(find.textContaining('출석부 이미지로 저장'), findsOneWidget);
   });
 
+  testWidgets('출석부: 관리자만 이름을 눌러 지우기 확인 창', (tester) async {
+    tester.view.physicalSize = const Size(1080, 4000);
+    tester.view.devicePixelRatio = 2.7;
+    addTearDown(tester.view.reset);
+    final members = latestByName([_m('1', '이순신', 1)]);
+    Future<void> pump(bool canRemove) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [todayProvider.overrideWith(_FixedToday.new)],
+          child: MaterialApp(
+            theme: AppTheme.of(AppThemeId.fallback),
+            home: Scaffold(
+              body: RosterView(course: fakeCourse(), members: AsyncData(members), canRemove: canRemove),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pump(false);
+    await tester.tap(find.text('이순신'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('지울까요'), findsNothing);
+    expect(find.textContaining('보기만 할 수 있어요'), findsOneWidget);
+
+    await pump(true);
+    expect(find.textContaining('이름을 누르면 출석부에서 지울 수 있어요'), findsOneWidget);
+    await tester.tap(find.text('이순신'));
+    await tester.pumpAndSettle();
+    expect(find.text('이순신 님을 출석부에서 지울까요?'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('지울까요'), findsNothing);
+  });
+
   test('반장·총무 코드 물을 때: 이름이 지정됐고, 아직 인정 안 됐을 때만', () async {
     Future<bool> needed({required String name, required bool leader}) async {
       SharedPreferences.setMockInitialValues({'name': name, 'courseId': 'jedae2'});
