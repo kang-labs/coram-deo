@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show FirebaseException;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,7 +8,7 @@ import '../../../app/widgets.dart';
 import '../../../core/dates.dart';
 import '../../../core/models/course.dart';
 import '../../course/logic/course_providers.dart';
-import '../../course/ui/course_picker_screen.dart' show groupCourses;
+import '../../course/ui/course_picker_screen.dart' show CourseGroupHeader, groupCourses;
 import '../data/roster_repository.dart';
 import '../logic/roster_providers.dart';
 
@@ -25,6 +26,13 @@ Future<void> showMemberSheet(
   scrollable: true,
   builder: (_) => _MemberSheet(course: course, member: m, courseMembers: courseMembers, movingTo: movingTo),
 );
+
+/// 서버가 거절한 이유별 안내 (권한 거부는 인터넷 문제가 아니라 서버 규칙·관리자 로그인 문제예요)
+String _failMessage(String code) => switch (code) {
+  'permission-denied' => '서버가 허락하지 않았어요. 서버 규칙을 올렸는지, 관리자로 로그인했는지 확인해 주세요.',
+  'unavailable' => '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.',
+  _ => '하지 못했어요. 잠시 뒤 다시 해 주세요. ($code)',
+};
 
 String _day(DateTime? d) => d == null ? '모름' : '${d.year}.${pad2(d.month)}.${pad2(d.day)}';
 
@@ -48,6 +56,8 @@ class _MemberSheet extends ConsumerWidget {
     try {
       await work();
       messenger.showSnackBar(SnackBar(content: Text(done)));
+    } on FirebaseException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(_failMessage(e.code))));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('하지 못했어요. 인터넷 연결을 확인해 주세요. ($e)')));
     }
@@ -287,15 +297,14 @@ class _CoursePicker extends ConsumerWidget {
             if (groups.isEmpty) return [_note('옮길 수 있는 다른 반이 없어요.')];
             return [
               for (final (title, group) in groups) ...[
-                if (title.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16, bottom: 2),
-                    child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  ),
+                if (title.isNotEmpty) CourseGroupHeader(title, padding: const EdgeInsets.only(top: 20, bottom: 0)),
                 for (final c in group)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(c.name.isEmpty ? '(이름 없는 반)' : c.name),
+                    title: Text(
+                      c.name.isEmpty ? '(이름 없는 반)' : c.name,
+                      style: TextStyle(color: context.palette.ink, fontWeight: FontWeight.w600),
+                    ),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => Navigator.of(context).pop(c),
                   ),

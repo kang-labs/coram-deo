@@ -104,11 +104,7 @@ class CourseListSliver extends ConsumerWidget {
               sliver: SliverList.list(
                 children: [
                   for (final (title, group) in groupCourses(list)) ...[
-                    if (title.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
-                        child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                      ),
+                    if (title.isNotEmpty) CourseGroupHeader(title, padding: const EdgeInsets.fromLTRB(4, 12, 4, 8)),
                     for (final c in group)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -120,6 +116,23 @@ class CourseListSliver extends ConsumerWidget {
             ),
     );
   }
+}
+
+/// '25기 양육훈련' 같은 반 묶음 머리글. 반 이름(진한 글자)과 헷갈리지 않게 보조 색·작은 글씨로 보여요.
+class CourseGroupHeader extends StatelessWidget {
+  const CourseGroupHeader(this.title, {super.key, this.padding = EdgeInsets.zero});
+
+  final String title;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: padding,
+    child: Text(
+      title,
+      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: context.palette.accent, letterSpacing: 0.2),
+    ),
+  );
 }
 
 /// 반을 '25기 양육훈련'처럼 묶어요. 과정 순서(양육 → 제자학교 → 제자대학1 → 2) → 기수 큰 것 → 반 순서.
