@@ -85,6 +85,10 @@ class RosterRepository {
   /// 내 문서 지우기 (반을 잘못 골랐다 바꿀 때, 기록이 비어 있을 때만 앱이 불러요)
   Future<void> removeMine(String cid, String uid) => _course(cid).collection('members').doc(uid).delete();
 
+  /// 서버에 내 문서가 아직 있는지. 오프라인 캐시로 잘못 판단하지 않게 서버에서만 읽어요(실패하면 예외).
+  Future<bool> mineExists(String cid, String uid) async =>
+      (await _course(cid).collection('members').doc(uid).get(const GetOptions(source: Source.server))).exists;
+
   /// 반 사람 전부 (반장·총무·관리자만 읽을 수 있어요)
   Stream<List<Member>> watchMembers(String cid) =>
       _course(cid)

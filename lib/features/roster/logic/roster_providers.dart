@@ -77,6 +77,26 @@ Future<void> leaveCourseIfEmpty(Ref ref, String cid) async {
   }
 }
 
+/// 관리자가 지금 반 출석부에서 나를 지웠는지. 지웠으면 그 반의 '올림' 표시를 지우고 true.
+/// 올린 적이 있는데(sent 있음) 서버 문서가 없으면 지워진 거예요. 처음 올리기 전이거나 확인이 실패하면 false.
+Future<bool> checkRemovedByAdmin(WidgetRef ref) async {
+  final cid = ref.read(selectedCourseIdProvider);
+  final prefs = ref.read(sharedPreferencesProvider);
+  if (!_firebaseReady || cid == null || prefs.getString('sent.$cid') == null) return false;
+  final repo = ref.read(rosterRepositoryProvider);
+  try {
+    final uid = await ref.read(memberUidProvider.future);
+    if (uid == null || await repo.mineExists(cid, uid)) return false;
+    // 그 사이 반을 바꿨거나 처음 올리기가 끝나 상태가 달라졌으면 넘어가요
+    if (ref.read(selectedCourseIdProvider) != cid || prefs.getString('sent.$cid') == null) return false;
+    await prefs.remove('sent.$cid');
+    return true;
+  } catch (e) {
+    debugPrint('출석부 확인 실패(다음에 다시): $e');
+    return false;
+  }
+}
+
 /// 위 함수를 화면에서 부를 수 있게
 final leaveCourseIfEmptyProvider = Provider<Future<void> Function(String cid)>(
   (ref) =>

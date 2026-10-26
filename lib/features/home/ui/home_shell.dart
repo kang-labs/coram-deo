@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/dialogs.dart';
 import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
 import '../../course/logic/course_providers.dart';
@@ -80,7 +81,33 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   void initState() {
     super.initState();
-    _lifecycle = AppLifecycleListener(onResume: () => ref.read(todayProvider.notifier).refresh());
+    _lifecycle = AppLifecycleListener(
+      onResume: () {
+        ref.read(todayProvider.notifier).refresh();
+        _checkRemoved();
+      },
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkRemoved());
+  }
+
+  /// 마지막으로 '관리자가 지웠는지' 확인한 때. 앱을 자주 오가도 한 시간에 한 번만 서버에 물어요(사용량·배터리).
+  DateTime? _removedCheckedAt;
+
+  /// 관리자가 출석부에서 지웠으면 알려 주고 반 고르기부터 다시 해요. 체크 기록은 폰에 그대로 남아요.
+  Future<void> _checkRemoved() async {
+    final now = DateTime.now();
+    if (_removedCheckedAt != null && now.difference(_removedCheckedAt!) < const Duration(hours: 1)) return;
+    _removedCheckedAt = now;
+    if (!await checkRemovedByAdmin(ref) || !mounted) return;
+    final title = ref.read(currentCourseProvider).valueOrNull?.fullTitle;
+    await showInfoDialog(
+      context,
+      title: '반을 다시 골라 주세요',
+      body:
+          '관리자가 ${title == null ? '이 반' : "'$title'"} 출석부에서 이름을 뺐어요.\n'
+          '체크 기록은 이 폰에 그대로 있어요.',
+    );
+    if (mounted) await ref.read(selectedCourseIdProvider.notifier).clear();
   }
 
   @override
