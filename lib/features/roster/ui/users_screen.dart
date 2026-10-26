@@ -86,6 +86,7 @@ class _UserTile extends StatelessWidget {
         ],
       ),
       subtitle: Text(
+        '${member.device == null ? '' : '${member.device!.label} · '}'
         '${memberDocLine(member)}${older == 0 ? '' : ' · 같은 이름 예전 $older'}'
         '${movingTo == null ? '' : ' · 반 옮기는 중'}',
       ),

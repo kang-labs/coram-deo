@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/device_kind.dart';
 import '../../../core/firebase_providers.dart';
 import '../../../core/local_storage.dart';
 import '../../../core/models/course.dart';
@@ -40,7 +41,9 @@ final memberSyncProvider = Provider<void>((ref) {
   final name = ref.watch(myNameProvider);
   final record = ref.watch(courseRecordProvider);
   if (!_firebaseReady || cid == null || name.isEmpty) return;
-  final payload = jsonEncode([name, record.toJson()]);
+  final device = collectDeviceKind ? DeviceKind.current : null;
+  // 기기 종류도 넣어서, 새 버전으로 바꾼 폰은 한 번 다시 올려 기기 종류가 채워져요
+  final payload = jsonEncode([name, record.toJson(), ?device?.code]);
   final prefs = ref.read(sharedPreferencesProvider);
   final sentKey = 'sent.$cid';
   if (prefs.getString(sentKey) == payload) return;
@@ -56,7 +59,7 @@ final memberSyncProvider = Provider<void>((ref) {
         retryUidLater();
         return;
       }
-      await repo.upload(cid, uid, name, record);
+      await repo.upload(cid, uid, name, record, device: device);
       await prefs.setString(sentKey, payload);
     } catch (e) {
       debugPrint('기록 올리기 실패(다음 체크 때 다시): $e');

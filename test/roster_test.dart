@@ -1,5 +1,6 @@
 import 'package:coram_deo/app/app.dart';
 import 'package:coram_deo/app/theme.dart';
+import 'package:coram_deo/core/device_kind.dart';
 import 'package:coram_deo/core/local_storage.dart';
 import 'package:coram_deo/core/models/course.dart';
 import 'package:coram_deo/features/course/data/course_repository.dart';
@@ -188,7 +189,11 @@ void main() {
           adminUsersProvider.overrideWith(
             (ref) async => sortUsers([
               (course: long, member: _m('1', '홍길동가나다라마바사아자차카타파하', 1), movingTo: 'other'),
-              (course: fakeCourse(), member: _m('2', '김철수', 1), movingTo: null),
+              (
+                course: fakeCourse(),
+                member: Member(uid: '2', name: '김철수', record: CourseRecord.empty, device: DeviceKind.iphone),
+                movingTo: null,
+              ),
             ]),
           ),
         ],
@@ -200,6 +205,9 @@ void main() {
     expect(find.text('제자대학2학기'), findsOneWidget);
     expect(find.textContaining('2명'), findsOneWidget);
     expect(find.textContaining('반 옮기는 중'), findsOneWidget);
+    expect(find.textContaining('아이폰 · '), findsOneWidget);
+    expect(DeviceKind.fromCode('android'), DeviceKind.android);
+    expect(DeviceKind.fromCode('x'), isNull);
     await tester.enterText(find.byType(TextField), '철수');
     await tester.pumpAndSettle();
     expect(find.text('김철수'), findsOneWidget);

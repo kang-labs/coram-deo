@@ -4,24 +4,35 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/device_kind.dart';
 import '../../../core/models/course.dart';
 import '../../record/data/course_record.dart';
 
 /// 반 사람 한 명의 출석부 (서버 `courses/{반}/members/{익명 uid}`)
 @immutable
 class Member {
-  const Member({required this.uid, required this.name, required this.record, this.updatedAt, this.older = const []});
+  const Member({
+    required this.uid,
+    required this.name,
+    required this.record,
+    this.updatedAt,
+    this.device,
+    this.older = const [],
+  });
 
   final String uid;
   final String name;
   final CourseRecord record;
   final DateTime? updatedAt;
 
+  /// 올린 기기 종류 (시험 운영 기간에만 올려요, [collectDeviceKind]). 예전 앱이 올렸으면 null.
+  final DeviceKind? device;
+
   /// 같은 이름으로 남은 예전 문서들 (최근 것 먼저). 앱을 다시 깔았거나 동명이인일 때 생겨요.
   final List<Member> older;
 
   Member withOlder(List<Member> older) =>
-      Member(uid: uid, name: name, record: record, updatedAt: updatedAt, older: older);
+      Member(uid: uid, name: name, record: record, updatedAt: updatedAt, device: device, older: older);
 
   /// 서버 문서 하나. 모양이 다르면 null(건너뜀).
   static Member? fromDoc(String uid, Map<String, dynamic> m) {
@@ -33,6 +44,7 @@ class Member {
       name: name.trim(),
       record: m['record'] is Map ? CourseRecord.fromJson(jsonEncode(m['record'])) : CourseRecord.empty,
       updatedAt: u is Timestamp ? u.toDate() : null,
+      device: DeviceKind.fromCode(m['device']),
     );
   }
 }
@@ -117,11 +129,16 @@ class RosterRepository {
   DocumentReference<Map<String, dynamic>> _course(String cid) => _db.collection('courses').doc(cid);
 
   /// 내 기록 올리기 (익명 uid 자리). 기록이 비어도 이름은 올려서 반장 출석부에 보이게 해요.
-  Future<void> upload(String cid, String uid, String name, CourseRecord record) =>
-      _course(cid)
-          .collection('members')
-          .doc(uid)
-          .set({'name': name, 'record': jsonDecode(record.toJson()), 'updatedAt': FieldValue.serverTimestamp()});
+  /// [device]가 있으면 기기 종류도 같이 올려요(시험 운영 기간에만).
+  Future<void> upload(String cid, String uid, String name, CourseRecord record, {DeviceKind? device}) => _course(cid)
+      .collection('members')
+      .doc(uid)
+      .set({
+        'name': name,
+        'record': jsonDecode(record.toJson()),
+        'device': ?device?.code,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
   /// 내 문서 지우기 (반을 잘못 골랐다 바꿀 때, 기록이 비어 있을 때만 앱이 불러요)
   Future<void> removeMine(String cid, String uid) => _course(cid).collection('members').doc(uid).delete();
