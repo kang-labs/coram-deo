@@ -150,6 +150,19 @@ def main() -> None:
     check("다른 폰: 남의 돌려받은 기록 읽기", get("courses/c1/restores/u1", u2), False)
     check("다른 폰: 남의 상자 지우기", req("DELETE", f"{BASE}/courses/c1/restores/u1", u2), False)
     check("받을 폰: 가져간 뒤 상자 지우기", req("DELETE", f"{BASE}/courses/c1/restores/u1", u1), True)
+    assert put("courses/c2", {**COURSE, "name": "양육B반"}, OWNER) == 200
+    mv = {"to": "c2", "record": {}}
+    check("익명: 옮기기 상자 직접 넣기", put("courses/c1/moves/u1", mv, u1, "at"), False)
+    check("관리자: 반 옮기기", put("courses/c1/moves/u1", mv, admin, "at"), True)
+    check("관리자: 없는 반으로 옮기기", put("courses/c1/moves/u2", {**mv, "to": "nope"}, admin, "at"), False)
+    check("관리자: 같은 반으로 옮기기", put("courses/c1/moves/u2", {**mv, "to": "c1"}, admin, "at"), False)
+    check("관리자: 옮기기에 모르는 필드", put("courses/c1/moves/u2", {**mv, "x": 1}, admin, "at"), False)
+    check("관리자: 옮기는 중 목록 읽기", list_("courses/c1/moves", admin), True)
+    check("다른 폰: 남의 옮기기 읽기", get("courses/c1/moves/u1", u2), False)
+    check("옮길 폰: 옮기기 읽기", get("courses/c1/moves/u1", u1), True)
+    check("옮길 폰: 새 반에 기록 올리기", put("courses/c2/members/u1", rec, u1, "updatedAt"), True)
+    check("다른 폰: 남의 옮기기 지우기", req("DELETE", f"{BASE}/courses/c1/moves/u1", u2), False)
+    check("옮길 폰: 옮긴 뒤 상자 지우기", req("DELETE", f"{BASE}/courses/c1/moves/u1", u1), True)
     check("이메일 확인 안 된 관리자 흉내: 코드 읽기", get("courses/c1/private/codes", fake_admin), False)
     check("관리자: 반 저장(반장 정보 유지)", put("courses/c1", COURSE, admin, "updatedAt"), True)
     no_leaders = {k: v for k, v in COURSE.items() if k != "leaders"}

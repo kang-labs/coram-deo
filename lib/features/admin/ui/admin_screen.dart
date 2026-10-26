@@ -336,7 +336,7 @@ class _CourseAdminList extends ConsumerWidget {
                       trailing: Icon(Icons.chevron_right_rounded),
                     ),
                     SizedBox(height: 6),
-                    MutedText('모든 반 사람 보기 · 데이터 가져와 주기 · 출석부에서 지우기', style: TextStyle(fontSize: 13)),
+                    MutedText('모든 반 사람 보기 · 데이터 가져와 주기 · 반 옮기기 · 출석부에서 지우기', style: TextStyle(fontSize: 13)),
                   ],
                 ),
               ),

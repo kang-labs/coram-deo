@@ -52,7 +52,7 @@ List<Member> latestByName(Iterable<Member> members) {
 }
 
 /// 관리자 '사용자 관리' 한 줄: 어느 반의 누구인지
-typedef UserEntry = ({Course course, Member member});
+typedef UserEntry = ({Course course, Member member, String? movingTo});
 
 /// 사용자 관리 목록 순서: 이름 가나다순, 같은 이름이면 반 순서
 List<UserEntry> sortUsers(Iterable<UserEntry> users) => users.toList()
@@ -74,8 +74,14 @@ bool nameMatches(String name, String query) {
   final docs = [
     for (final m in courseMembers) ...[m, ...m.older],
   ].where((d) => d.uid != target.uid && !d.record.isEmpty);
-  final same = [for (final d in docs) if (normalizeName(d.name) == key) d];
-  final others = [for (final d in docs) if (normalizeName(d.name) != key) d]..sort((a, b) => a.name.compareTo(b.name));
+  final same = [
+    for (final d in docs)
+      if (normalizeName(d.name) == key) d,
+  ];
+  final others = [
+    for (final d in docs)
+      if (normalizeName(d.name) != key) d,
+  ]..sort((a, b) => a.name.compareTo(b.name));
   return (sameName: same, others: others);
 }
 
@@ -132,6 +138,29 @@ class RosterRepository {
 
   /// 돌려받은 기록을 폰에 합친 뒤 상자를 비워요
   Future<void> clearRestore(String cid, String uid) => _restore(cid, uid).delete();
+
+  DocumentReference<Map<String, dynamic>> _move(String cid, String uid) => _course(cid).collection('moves').doc(uid);
+
+  /// 상자 문서의 기록 (없거나 모양이 다르면 빈 기록)
+  static CourseRecord _boxRecord(DocumentSnapshot<Map<String, dynamic>> d) {
+    final r = d.data()?['record'];
+    return r is Map ? CourseRecord.fromJson(jsonEncode(r)) : CourseRecord.empty;
+  }
+
+  /// 관리자가 남긴 반 옮기기 (없으면 null): 옮길 반 id와 같이 들고 갈 예전 기록. 서버에서만 읽어요(실패하면 예외).
+  Future<({String to, CourseRecord record})?> readMove(String cid, String uid) async {
+    final d = await _move(cid, uid).get(const GetOptions(source: Source.server));
+    final to = d.data()?['to'];
+    return d.exists && to is String && to.isNotEmpty ? (to: to, record: _boxRecord(d)) : null;
+  }
+
+  /// 새 반으로 옮긴 뒤: 옛 반의 옮기기 상자·내 출석부·반장 인정을 한 번에 지워요.
+  Future<void> finishMove(String cid, String uid) =>
+      (_db.batch()
+            ..delete(_move(cid, uid))
+            ..delete(_course(cid).collection('members').doc(uid))
+            ..delete(_course(cid).collection('leaders').doc(uid)))
+          .commit();
 
   /// 서버에 내 문서가 아직 있는지. 오프라인 캐시로 잘못 판단하지 않게 서버에서만 읽어요(실패하면 예외).
   Future<bool> mineExists(String cid, String uid) async =>
@@ -209,9 +238,7 @@ class RosterRepository {
     for (final o in from) {
       merged = merged.fillFrom(o.record);
     }
-    final pending = await _restore(cid, to.uid).get(const GetOptions(source: Source.server));
-    final prev = pending.data()?['record'];
-    if (prev is Map) merged = merged.fillFrom(CourseRecord.fromJson(jsonEncode(prev)));
+    merged = merged.fillFrom(_boxRecord(await _restore(cid, to.uid).get(const GetOptions(source: Source.server))));
     final batch = _db.batch();
     batch.set(_restore(cid, to.uid), {
       'record': jsonDecode(merged.toJson()),
@@ -225,7 +252,57 @@ class RosterRepository {
     await batch.commit();
   }
 
-  /// 관리자: 마지막으로 올린 지 [cutoff]보다 오래된 사본(members)과 돌려주기 상자를 지워요.
+  /// 관리자: 이 반에서 옮기는 중인 사람들 (익명 uid → 옮길 반 id)
+  /// 못 읽으면(서버 규칙을 아직 안 올렸을 때 등) 빈 목록 — 사용자 목록은 그대로 보이게.
+  Future<Map<String, String>> fetchMoves(String cid) async {
+    final QuerySnapshot<Map<String, dynamic>> s;
+    try {
+      s = await _course(cid).collection('moves').get();
+    } catch (e) {
+      debugPrint('옮기는 중 목록을 못 읽었어요: $e');
+      return const {};
+    }
+    return {
+      for (final d in s.docs)
+        if (d.data()['to'] case final String to when to.isNotEmpty) d.id: to,
+    };
+  }
+
+  /// 관리자: [m]을 [to] 반으로 옮겨요. 그 폰이 다음에 앱을 열면 새 반으로 바뀌고 기록도 들고 가요(같은 칸만).
+  /// 같은 이름 예전 문서(앱을 다시 깐 사람)의 기록은 상자에 같이 넣고 출석부에서 지워요(옮긴 뒤 옛 반에 이름이 남지 않게).
+  /// [m] 문서는 그 폰이 옮기면서 지워요. 이미 옮기는 중이었으면 옮길 반만 바꿔요.
+  Future<void> moveMember(String cid, Member m, String to) async {
+    assert(to != cid);
+    var merged = _boxRecord(await _move(cid, m.uid).get(const GetOptions(source: Source.server)));
+    for (final o in m.older) {
+      merged = merged.fillFrom(o.record);
+    }
+    final batch = _db.batch()
+      ..set(_move(cid, m.uid), {'to': to, 'record': jsonDecode(merged.toJson()), 'at': FieldValue.serverTimestamp()});
+    for (final o in m.older) {
+      batch
+        ..delete(_course(cid).collection('members').doc(o.uid))
+        ..delete(_course(cid).collection('leaders').doc(o.uid));
+    }
+    await batch.commit();
+  }
+
+  /// 관리자: 반 옮기기 취소. 상자에 넣어 둔 예전 기록은 잃지 않게 같은 반 돌려주기 상자로 보내요.
+  Future<void> cancelMove(String cid, Member m) async {
+    final carried = _boxRecord(await _move(cid, m.uid).get(const GetOptions(source: Source.server)));
+    final batch = _db.batch()..delete(_move(cid, m.uid));
+    if (!carried.isEmpty) {
+      final pending = await _restore(cid, m.uid).get(const GetOptions(source: Source.server));
+      batch.set(_restore(cid, m.uid), {
+        'record': jsonDecode(_boxRecord(pending).fillFrom(carried).toJson()),
+        'fromName': m.name,
+        'at': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  /// 관리자: 마지막으로 올린 지 [cutoff]보다 오래된 사본(members)과 돌려주기·옮기기 상자를 지워요.
   /// 원본은 각자 폰에 있어서 서버 사본만 정리해요. 지운 문서 수를 돌려줘요.
   Future<int> deleteStale(Iterable<String> cids, DateTime cutoff) async {
     final at = Timestamp.fromDate(cutoff);
@@ -233,9 +310,11 @@ class RosterRepository {
     for (final cid in cids) {
       final members = await _course(cid).collection('members').where('updatedAt', isLessThan: at).get();
       final restores = await _course(cid).collection('restores').where('at', isLessThan: at).get();
+      final moves = await _course(cid).collection('moves').where('at', isLessThan: at).get();
       final refs = [
         for (final d in members.docs) ...[d.reference, _course(cid).collection('leaders').doc(d.id)],
         for (final d in restores.docs) d.reference,
+        for (final d in moves.docs) d.reference,
       ];
       // batch 하나는 500개까지라 나눠서 지워요
       for (var i = 0; i < refs.length; i += 450) {
@@ -245,7 +324,7 @@ class RosterRepository {
         }
         await batch.commit();
       }
-      count += members.size + restores.size;
+      count += members.size + restores.size + moves.size;
     }
     return count;
   }

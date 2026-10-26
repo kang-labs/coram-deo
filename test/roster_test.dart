@@ -155,9 +155,9 @@ void main() {
     final a = fakeCourse().copyWith(order: 2);
     final b = fakeCourse().copyWith(order: 1);
     final users = sortUsers([
-      (course: a, member: _m('1', '이순신', 1)),
-      (course: a, member: _m('2', '강감찬', 1)),
-      (course: b, member: _m('3', '이순신', 1)),
+      (course: a, member: _m('1', '이순신', 1), movingTo: null),
+      (course: a, member: _m('2', '강감찬', 1), movingTo: null),
+      (course: b, member: _m('3', '이순신', 1), movingTo: null),
     ]);
     expect([for (final u in users) u.member.uid], ['2', '3', '1']);
     expect(nameMatches('홍 길동A', '길동a'), isTrue);
@@ -187,8 +187,8 @@ void main() {
         overrides: [
           adminUsersProvider.overrideWith(
             (ref) async => sortUsers([
-              (course: long, member: _m('1', '홍길동가나다라마바사아자차카타파하', 1)),
-              (course: fakeCourse(), member: _m('2', '김철수', 1)),
+              (course: long, member: _m('1', '홍길동가나다라마바사아자차카타파하', 1), movingTo: 'other'),
+              (course: fakeCourse(), member: _m('2', '김철수', 1), movingTo: null),
             ]),
           ),
         ],
@@ -199,6 +199,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('제자대학2학기'), findsOneWidget);
     expect(find.textContaining('2명'), findsOneWidget);
+    expect(find.textContaining('반 옮기는 중'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '철수');
     await tester.pumpAndSettle();
     expect(find.text('김철수'), findsOneWidget);
@@ -212,8 +213,12 @@ void main() {
     final rec = CourseRecord.empty.withValue(1, 'attend', 'att', 'o');
     final members = latestByName([_m('new', '이순신', 9), _m('old', '이순신', 1, rec), _m('kim', '김철수', 5, rec)]);
     final target = members.firstWhere((m) => m.uid == 'new');
+    final other = fakeCourse().copyWith(id: 'jedae1', name: '제자대학1학기');
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          visibleCoursesProvider.overrideWithValue(AsyncData([fakeCourse(), other])),
+        ],
         child: MaterialApp(
           theme: AppTheme.of(AppThemeId.fallback),
           home: Scaffold(
@@ -246,12 +251,47 @@ void main() {
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('반 옮기기'));
+    await tester.pumpAndSettle();
+    expect(find.text('이순신 님을 옮길 반'), findsOneWidget);
+    expect(find.text('제자대학2학기'), findsNothing); // 지금 반은 빼요
+    await tester.tap(find.text('제자대학1학기'));
+    await tester.pumpAndSettle();
+    expect(find.text('이순신 님 반을 옮길까요?'), findsOneWidget);
+    expect(find.textContaining('같은 이름 예전 기록 1개도'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('출석부에서 지우기'));
     await tester.pumpAndSettle();
     expect(find.text('이순신 님을 출석부에서 지울까요?'), findsOneWidget);
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(find.textContaining('지울까요'), findsNothing);
+  });
+
+  test('반 옮기기: 새 반에 있는 칸만, 칸 종류에 맞는 값만, 그 반 주 수까지 들고 가요', () {
+    final rec = CourseRecord.empty
+        .withValue(1, 'attend', 'att', 'late')
+        .withValue(1, 'attend', 'review', 'dot', note: '휴일')
+        .withValue(1, 'zzz', 'main', 'o') // 새 반에 없는 항목
+        .withValue(2, 'prep', 'main', 'late') // 고르는 칸에 없는 값
+        .withValue(2, 'bible', 'main', 127)
+        .withValue(13, 'attend', 'att', 'o'); // 12주 반에 없는 주
+    final kept = rec.onlyFor(fakeCourse());
+    expect(kept.value(1, 'attend', 'att'), 'late');
+    expect(kept.note(1, 'attend', 'review'), '휴일');
+    expect(kept.value(1, 'zzz', 'main'), isNull);
+    expect(kept.value(2, 'prep', 'main'), isNull);
+    expect(kept.mask(2, 'bible', 'main'), 127);
+    expect(kept.weekCount, 2);
+    final noAttend = fakeCourse().copyWith(
+      items: [
+        for (final i in fakeCourse().items)
+          if (i.id != 'attend') i,
+      ],
+    );
+    expect(rec.onlyFor(noAttend).value(1, 'attend', 'att'), isNull);
   });
 
   test('같은 이름 예전 문서는 older에 최근 것 먼저, 기록 합치기는 빈 칸만', () {

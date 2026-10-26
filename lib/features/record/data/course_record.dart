@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/models/course.dart' show Course, MarkValue, PartType;
 import '../../../core/models/course_defaults.dart' show legacyPartId;
 
 /// 반 하나의 내 체크 기록 (폰에 저장, 반장·총무용 사본은 서버 members에도). 주차(1부터) → 항목 id → 칸 id → 값.
@@ -82,6 +83,35 @@ class CourseRecord {
         items[i.key] = Map.unmodifiable(parts);
       }
       weeks[w.key] = Map.unmodifiable(items);
+    }
+    return CourseRecord(Map.unmodifiable(weeks));
+  }
+
+  /// [course]에 있는 칸만 남긴 새 기록 (관리자가 다른 반으로 옮길 때 기록을 들고 가요).
+  /// 항목·칸 id가 같고 값이 그 칸 종류에 맞을 때만(요일 칸은 숫자, 고르는 칸은 그 칸 선택지). 주차는 그 반 주 수까지.
+  CourseRecord onlyFor(Course course) {
+    final parts = {
+      for (final i in course.items)
+        for (final p in i.parts) (i.id, p.id): p.type,
+    };
+    bool fits(PartType type, Object raw) {
+      final v = raw is Map ? raw['v'] : raw;
+      return type.isDaily ? v is int : type.choices.contains(MarkValue.fromCode(v));
+    }
+
+    final maxWeek = course.weeks.isEmpty ? null : course.weeks.length;
+    final weeks = <int, Map<String, Map<String, Object>>>{};
+    for (final w in _weeks.entries) {
+      if (maxWeek != null && w.key > maxWeek) continue;
+      final items = <String, Map<String, Object>>{};
+      for (final i in w.value.entries) {
+        final kept = {
+          for (final p in i.value.entries)
+            if (parts[(i.key, p.key)] case final type? when fits(type, p.value)) p.key: p.value,
+        };
+        if (kept.isNotEmpty) items[i.key] = Map.unmodifiable(kept);
+      }
+      if (items.isNotEmpty) weeks[w.key] = Map.unmodifiable(items);
     }
     return CourseRecord(Map.unmodifiable(weeks));
   }

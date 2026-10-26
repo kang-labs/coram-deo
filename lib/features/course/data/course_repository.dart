@@ -36,6 +36,12 @@ class CourseRepository {
   Stream<Course?> watch(String id) =>
       _col.doc(id).snapshots().map((d) => d.exists ? parseCourse(d.id, d.data()!) : null);
 
+  /// 반 하나를 서버에서 한 번 읽기 (관리자가 옮겨 준 반 확인용). 없으면 null, 실패하면 예외.
+  Future<Course?> fetch(String id) async {
+    final d = await _col.doc(id).get(const GetOptions(source: Source.server));
+    return d.exists ? parseCourse(d.id, d.data()!) : null;
+  }
+
   /// 문서 하나 읽기. 앞으로 서버 형식이 바뀌어도 앱이 멈추지 않게, 실패하면 null.
   static Course? parseCourse(String id, Map<String, dynamic> data) {
     try {

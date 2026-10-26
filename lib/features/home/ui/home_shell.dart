@@ -90,8 +90,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkServer());
   }
 
-  /// 마지막으로 서버에 관리자 조치(지우기·예전 기록 돌려주기)를 물어본 때.
-  /// 앱을 자주 오가도 15분에 한 번만 물어요(문서 두 개 읽기라 사용량·배터리 부담이 작아요).
+  /// 마지막으로 서버에 관리자 조치(반 옮기기·지우기·예전 기록 돌려주기)를 물어본 때.
+  /// 앱을 자주 오가도 15분에 한 번만 물어요(문서 몇 개 읽기라 사용량·배터리 부담이 작아요).
   DateTime? _serverCheckedAt;
 
   /// 앱을 열거나 돌아올 때: 관리자가 출석부에서 지웠으면 알리고 반 고르기부터,
@@ -100,6 +100,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final now = DateTime.now();
     if (_serverCheckedAt != null && now.difference(_serverCheckedAt!) < const Duration(minutes: 15)) return;
     _serverCheckedAt = now;
+    // 옮기기를 먼저 봐요: 옮긴 뒤에는 옛 반 문서가 없어져 '지워졌다'로 잘못 알 수 있어서예요
+    final moved = await takeMove(ref);
+    if (moved != null && mounted) {
+      await showInfoDialog(
+        context,
+        title: '반이 바뀌었어요',
+        body:
+            '관리자가 반을 옮겼어요.\n새 반: ${moved.fullTitle}\n'
+            '같은 체크 항목은 기록도 같이 옮겼어요. 예전 반 기록은 설정 > 지난 출석부에 남아 있어요.',
+      );
+    }
     if (await checkRemovedByAdmin(ref)) {
       if (mounted) await _onRemoved();
       return;

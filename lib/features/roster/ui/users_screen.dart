@@ -8,7 +8,7 @@ import '../logic/roster_providers.dart';
 import 'member_sheet.dart';
 
 /// 관리자 '사용자 관리': 모든 반 사람을 이름순으로 한 목록에(옆에 반 이름). 이름으로 찾고,
-/// 누르면 데이터 가져와 주기·출석부에서 지우기 창이 떠요.
+/// 누르면 데이터 가져와 주기·반 옮기기·출석부에서 지우기 창이 떠요.
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
 
@@ -35,7 +35,10 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
           action: OutlinedButton(onPressed: _refresh, child: const Text('다시 불러오기')),
         ),
         data: (all) {
-          final shown = [for (final u in all) if (nameMatches(u.member.name, _query)) u];
+          final shown = [
+            for (final u in all)
+              if (nameMatches(u.member.name, _query)) u,
+          ];
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
@@ -46,10 +49,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                   onChanged: (v) => setState(() => _query = v),
                 ),
                 const SizedBox(height: 8),
-                MutedText(
-                  '${all.length}명 · 앱에서 반을 고른 사람이 보여요. 아래로 당기면 새로 불러와요.',
-                  style: const TextStyle(fontSize: 13),
-                ),
+                MutedText('${all.length}명 · 앱에서 반을 고른 사람이 보여요. 아래로 당기면 새로 불러와요.', style: const TextStyle(fontSize: 13)),
                 if (shown.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 32),
@@ -73,7 +73,7 @@ class _UserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (:course, :member) = entry;
+    final (:course, :member, :movingTo) = entry;
     final older = member.older.length;
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -85,12 +85,15 @@ class _UserTile extends StatelessWidget {
           Flexible(child: TinyBadge(course.name.isEmpty ? '(이름 없는 반)' : course.name, tone: Tone.neutral)),
         ],
       ),
-      subtitle: Text('${memberDocLine(member)}${older == 0 ? '' : ' · 같은 이름 예전 $older'}'),
+      subtitle: Text(
+        '${memberDocLine(member)}${older == 0 ? '' : ' · 같은 이름 예전 $older'}'
+        '${movingTo == null ? '' : ' · 반 옮기는 중'}',
+      ),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: () => showMemberSheet(context, course, member, [
         for (final u in all)
           if (u.course.id == course.id) u.member,
-      ]),
+      ], movingTo: movingTo),
     );
   }
 }
