@@ -156,9 +156,9 @@ void main() {
     final a = fakeCourse().copyWith(order: 2);
     final b = fakeCourse().copyWith(order: 1);
     final users = sortUsers([
-      (course: a, member: _m('1', '이순신', 1), movingTo: null),
-      (course: a, member: _m('2', '강감찬', 1), movingTo: null),
-      (course: b, member: _m('3', '이순신', 1), movingTo: null),
+      (course: a, member: _m('1', '이순신', 1), phoneCid: null),
+      (course: a, member: _m('2', '강감찬', 1), phoneCid: null),
+      (course: b, member: _m('3', '이순신', 1), phoneCid: null),
     ]);
     expect([for (final u in users) u.member.uid], ['2', '3', '1']);
     expect(nameMatches('홍 길동A', '길동a'), isTrue);
@@ -188,11 +188,11 @@ void main() {
         overrides: [
           adminUsersProvider.overrideWith(
             (ref) async => sortUsers([
-              (course: long, member: _m('1', '홍길동가나다라마바사아자차카타파하', 1), movingTo: 'other'),
+              (course: long, member: _m('1', '홍길동가나다라마바사아자차카타파하', 1), phoneCid: 'other'),
               (
                 course: fakeCourse(),
                 member: Member(uid: '2', name: '김철수', record: CourseRecord.empty, device: DeviceKind.iphone),
-                movingTo: null,
+                phoneCid: null,
               ),
             ]),
           ),
@@ -204,7 +204,6 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('제자대학2학기'), findsOneWidget);
     expect(find.textContaining('2명'), findsOneWidget);
-    expect(find.textContaining('반 옮기는 중'), findsOneWidget);
     expect(find.textContaining('아이폰 · '), findsOneWidget);
     expect(DeviceKind.fromCode('android'), DeviceKind.android);
     expect(DeviceKind.fromCode('x'), isNull);

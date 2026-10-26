@@ -63,8 +63,9 @@ List<Member> latestByName(Iterable<Member> members) {
   ]..sort((a, b) => a.name.compareTo(b.name));
 }
 
-/// 관리자 '사용자 관리' 한 줄: 어느 반의 누구인지
-typedef UserEntry = ({Course course, Member member, String? movingTo});
+/// 관리자 '사용자 관리' 한 줄: 어느 반의 누구인지.
+/// [phoneCid]는 옮기기 상자가 있는 반 = 그 폰이 아직 고른 채로 있는 반(앱을 열면 새 반으로 바뀌어요). 없으면 null.
+typedef UserEntry = ({Course course, Member member, String? phoneCid});
 
 /// 사용자 관리 목록 순서: 이름 가나다순, 같은 이름이면 반 순서
 List<UserEntry> sortUsers(Iterable<UserEntry> users) => users.toList()
@@ -269,7 +270,7 @@ class RosterRepository {
     await batch.commit();
   }
 
-  /// 관리자: 이 반에서 옮기는 중인 사람들 (익명 uid → 옮길 반 id)
+  /// 관리자: 이 반에 남은 옮기기 상자들 (익명 uid → 옮길 반 id). 폰이 아직 앱을 안 연 사람들이에요.
   /// 못 읽으면(서버 규칙을 아직 안 올렸을 때 등) 빈 목록 — 사용자 목록은 그대로 보이게.
   Future<Map<String, String>> fetchMoves(String cid) async {
     final QuerySnapshot<Map<String, dynamic>> s;
@@ -285,36 +286,47 @@ class RosterRepository {
     };
   }
 
-  /// 관리자: [m]을 [to] 반으로 옮겨요. 그 폰이 다음에 앱을 열면 새 반으로 바뀌고 기록도 들고 가요(같은 칸만).
-  /// 같은 이름 예전 문서(앱을 다시 깐 사람)의 기록은 상자에 같이 넣고 출석부에서 지워요(옮긴 뒤 옛 반에 이름이 남지 않게).
-  /// [m] 문서는 그 폰이 옮기면서 지워요. 이미 옮기는 중이었으면 옮길 반만 바꿔요.
-  Future<void> moveMember(String cid, Member m, String to) async {
-    assert(to != cid);
-    var merged = _boxRecord(await _move(cid, m.uid).get(const GetOptions(source: Source.server)));
+  /// 관리자: [m]을 [from] 반에서 [to] 반으로 바로 옮겨요.
+  /// 서버 출석부는 지금 바꿔요: [to] 반에 사본(그 반에 있는 칸 기록만)을 만들고, [from] 반의 이 사람 문서·반장 인정과
+  /// 같은 이름 예전 문서(앱을 다시 깐 사람)를 지워요. 예전 문서 기록은 사본과 옮기기 상자에 합쳐요.
+  /// 반 선택은 그 폰에만 있어서, 폰이 있는 반([phoneCid], 없으면 [from])에 옮기기 상자를 남겨요.
+  /// 폰은 다음에 앱을 열면 [to] 반으로 바뀌고 자기 기록을 들고 가요([takeMove]).
+  /// 폰이 있는 반으로 되돌리면 상자를 지우고, 상자의 예전 기록은 그 반 돌려주기 상자로 보내 잃지 않아요.
+  Future<void> moveMember(Course from, Member m, Course to, {String? phoneCid}) async {
+    assert(from.id != to.id);
+    final home = phoneCid ?? from.id;
+    var carried = _boxRecord(await _move(home, m.uid).get(const GetOptions(source: Source.server)));
     for (final o in m.older) {
-      merged = merged.fillFrom(o.record);
+      carried = carried.fillFrom(o.record);
     }
-    final batch = _db.batch()
-      ..set(_move(cid, m.uid), {'to': to, 'record': jsonDecode(merged.toJson()), 'at': FieldValue.serverTimestamp()});
-    for (final o in m.older) {
-      batch
-        ..delete(_course(cid).collection('members').doc(o.uid))
-        ..delete(_course(cid).collection('leaders').doc(o.uid));
-    }
-    await batch.commit();
-  }
-
-  /// 관리자: 반 옮기기 취소. 상자에 넣어 둔 예전 기록은 잃지 않게 같은 반 돌려주기 상자로 보내요.
-  Future<void> cancelMove(String cid, Member m) async {
-    final carried = _boxRecord(await _move(cid, m.uid).get(const GetOptions(source: Source.server)));
-    final batch = _db.batch()..delete(_move(cid, m.uid));
-    if (!carried.isEmpty) {
-      final pending = await _restore(cid, m.uid).get(const GetOptions(source: Source.server));
-      batch.set(_restore(cid, m.uid), {
-        'record': jsonDecode(_boxRecord(pending).fillFrom(carried).toJson()),
-        'fromName': m.name,
+    final batch = _db.batch();
+    if (to.id == home) {
+      batch.delete(_move(home, m.uid));
+      if (!carried.isEmpty) {
+        final pending = await _restore(home, m.uid).get(const GetOptions(source: Source.server));
+        batch.set(_restore(home, m.uid), {
+          'record': jsonDecode(_boxRecord(pending).fillFrom(carried).toJson()),
+          'fromName': m.name,
+          'at': FieldValue.serverTimestamp(),
+        });
+      }
+    } else {
+      batch.set(_move(home, m.uid), {
+        'to': to.id,
+        'record': jsonDecode(carried.toJson()),
         'at': FieldValue.serverTimestamp(),
       });
+    }
+    batch.set(_course(to.id).collection('members').doc(m.uid), {
+      'name': m.name,
+      'record': jsonDecode(m.record.fillFrom(carried).onlyFor(to).toJson()),
+      'device': ?m.device?.code,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    for (final d in [m, ...m.older]) {
+      batch
+        ..delete(_course(from.id).collection('members').doc(d.uid))
+        ..delete(_course(from.id).collection('leaders').doc(d.uid));
     }
     await batch.commit();
   }

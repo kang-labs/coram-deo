@@ -14,17 +14,17 @@ import '../logic/roster_providers.dart';
 
 /// 관리자 '사용자 관리'에서 사람을 누르면 올라오는 창: 반·마지막으로 올린 날,
 /// '데이터 가져와 주기'(앱을 다시 깐 사람에게 예전 기록을 넣어 줘요), '반 옮기기', '출석부에서 지우기'(잘못 들어온 사람).
-/// [courseMembers]는 그 반 출석부 전체예요(가져올 기록 후보). [movingTo]는 옮기는 중인 반 id.
+/// [courseMembers]는 그 반 출석부 전체예요(가져올 기록 후보). [phoneCid]는 그 폰이 아직 있는 반(옮기기 상자가 있을 때).
 Future<void> showMemberSheet(
   BuildContext context,
   Course course,
   Member m,
   List<Member> courseMembers, {
-  String? movingTo,
+  String? phoneCid,
 }) => showAppSheet(
   context,
   scrollable: true,
-  builder: (_) => _MemberSheet(course: course, member: m, courseMembers: courseMembers, movingTo: movingTo),
+  builder: (_) => _MemberSheet(course: course, member: m, courseMembers: courseMembers, phoneCid: phoneCid),
 );
 
 /// 서버가 거절한 이유별 안내 (권한 거부는 인터넷 문제가 아니라 서버 규칙·관리자 로그인 문제예요)
@@ -41,12 +41,12 @@ String memberDocLine(Member d) =>
     '마지막으로 올린 날 ${_day(d.updatedAt)} · ${d.record.isEmpty ? '기록 없음' : '${d.record.weekCount}주 기록'}';
 
 class _MemberSheet extends ConsumerWidget {
-  const _MemberSheet({required this.course, required this.member, required this.courseMembers, this.movingTo});
+  const _MemberSheet({required this.course, required this.member, required this.courseMembers, this.phoneCid});
 
   final Course course;
   final Member member;
   final List<Member> courseMembers;
-  final String? movingTo;
+  final String? phoneCid;
 
   /// 창을 닫고 서버 일을 한 뒤 알림. 끝나면 사용자 목록·출석부를 다시 읽어요.
   Future<void> _run(BuildContext context, WidgetRef ref, Future<void> Function() work, String done) async {
@@ -100,9 +100,8 @@ class _MemberSheet extends ConsumerWidget {
       title: '${member.name} 님 반을 옮길까요?',
       body:
           '${course.fullTitle} → ${to.fullTitle}\n'
-          '그 사람이 다음에 앱을 열면 새 반으로 바뀌어요.\n'
-          '같은 체크 항목은 기록도 같이 옮겨지고(빈 칸만 채움), 예전 반 기록은 그 폰의 지난 출석부에 남아요.\n'
-          '그때 지금 반 출석부에서 빠지고, 반장·총무 인정도 풀려요.'
+          '지금 바로 새 반 출석부로 옮겨지고(같은 체크 항목 기록만), 지금 반의 반장·총무 인정은 풀려요.\n'
+          '그 사람 폰은 다음에 앱을 열면 새 반으로 바뀌고, 예전 반 기록은 그 폰의 지난 출석부에 남아요.'
           '${older == 0 ? '' : '\n같은 이름 예전 기록 $older개도 같이 옮겨요.'}',
       ok: '옮기기',
     );
@@ -111,14 +110,9 @@ class _MemberSheet extends ConsumerWidget {
     await _run(
       context,
       ref,
-      () => repo.moveMember(course.id, member, to.id),
-      '${member.name} 님을 옮겨 두었어요. 앱을 열면 새 반으로 바뀌어요.',
+      () => repo.moveMember(course, member, to, phoneCid: phoneCid),
+      '${member.name} 님을 ${to.name}(으)로 옮겼어요.',
     );
-  }
-
-  Future<void> _cancelMove(BuildContext context, WidgetRef ref) async {
-    final repo = ref.read(adminRosterRepositoryProvider);
-    await _run(context, ref, () => repo.cancelMove(course.id, member), '${member.name} 님 반 옮기기를 취소했어요.');
   }
 
   Future<void> _remove(BuildContext context, WidgetRef ref) async {
@@ -141,7 +135,7 @@ class _MemberSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = importCandidates(courseMembers, member);
     final canImport = c.sameName.isNotEmpty || c.others.isNotEmpty;
-    final moving = movingTo;
+    final phone = phoneCid;
     return ListView(
       shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -161,22 +155,16 @@ class _MemberSheet extends ConsumerWidget {
         const SizedBox(height: 4),
         const MutedText('앱을 다시 깔아 기록이 비었을 때, 같은 반의 예전 기록을 이 사람 폰에 넣어 줘요.', style: TextStyle(fontSize: 13)),
         const SizedBox(height: 12),
-        if (moving == null)
-          OutlinedButton.icon(
-            onPressed: () => _move(context, ref),
-            icon: const Icon(Icons.swap_horiz_rounded),
-            label: const Text('반 옮기기'),
-          )
-        else ...[
-          MutedText(
-            '${courseTitleOf(ref, moving)}(으)로 옮기는 중이에요. 그 사람이 앱을 열면 옮겨져요.',
-            style: const TextStyle(fontSize: 13),
-          ),
+        OutlinedButton.icon(
+          onPressed: () => _move(context, ref),
+          icon: const Icon(Icons.swap_horiz_rounded),
+          label: const Text('반 옮기기'),
+        ),
+        if (phone != null && phone != course.id) ...[
           const SizedBox(height: 4),
-          OutlinedButton.icon(
-            onPressed: () => _cancelMove(context, ref),
-            icon: const Icon(Icons.undo_rounded),
-            label: const Text('반 옮기기 취소'),
+          MutedText(
+            '그 사람 폰은 아직 ${courseTitleOf(ref, phone)}에 있어요. 다음에 앱을 열면 이 반으로 바뀌어요.',
+            style: const TextStyle(fontSize: 13),
           ),
         ],
         const SizedBox(height: 12),

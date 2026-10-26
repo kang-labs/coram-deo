@@ -101,7 +101,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     if (_serverCheckedAt != null && now.difference(_serverCheckedAt!) < const Duration(minutes: 15)) return;
     _serverCheckedAt = now;
     // 옮기기를 먼저 봐요: 옮긴 뒤에는 옛 반 문서가 없어져 '지워졌다'로 잘못 알 수 있어서예요
-    final moved = await takeMove(ref);
+    final (:moved, :pending) = await takeMove(ref);
+    if (pending) return;
     if (moved != null && mounted) {
       await showInfoDialog(
         context,

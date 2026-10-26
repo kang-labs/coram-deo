@@ -10,6 +10,7 @@ import '../../../core/firebase_providers.dart';
 import '../../../core/local_storage.dart';
 import '../../../core/models/course.dart';
 import '../../course/logic/course_providers.dart';
+import '../../record/data/course_record.dart';
 import '../../record/logic/record_providers.dart';
 import '../data/roster_repository.dart';
 
@@ -101,12 +102,15 @@ Future<bool> checkRemovedByAdmin(WidgetRef ref) async {
   }
 }
 
-/// 관리자가 다른 반으로 옮겼으면 새 반으로 바꾸고 그 반을 돌려줘요(없으면 null).
+/// 관리자가 다른 반으로 옮겼으면 새 반으로 바꿔요. [moved]는 바꾼 반, [pending]은 상자는 있는데 이번에 못 바꾼 경우(오프라인 등).
+/// 관리자는 옮길 때 옛 반 출석부에서 바로 지우므로, [pending]이면 '출석부에서 지워졌다'로 보면 안 돼요.
 /// 지금 반 기록(+ 관리자가 넣어 준 예전 기록)에서 새 반에 있는 칸만 새 반 기록의 빈 칸에 채워요. 지금 반 기록은 지난 출석부로 남아요.
 /// 폰에 먼저 저장하고 반을 바꾼 다음 옛 반 문서를 지워요(지우기가 실패해도 폰 기록은 안전해요).
-Future<Course?> takeMove(WidgetRef ref) async {
+Future<({Course? moved, bool pending})> takeMove(WidgetRef ref) async {
+  const none = (moved: null, pending: false);
+  const pending = (moved: null, pending: true);
   final cid = ref.read(selectedCourseIdProvider);
-  if (!_firebaseReady || cid == null) return null;
+  if (!_firebaseReady || cid == null) return none;
   final repo = ref.read(rosterRepositoryProvider);
   final courses = ref.read(courseRepositoryProvider);
   final store = ref.read(localStoreProvider);
@@ -114,16 +118,23 @@ Future<Course?> takeMove(WidgetRef ref) async {
   final selected = ref.read(selectedCourseIdProvider.notifier);
   try {
     final uid = await ref.read(memberUidProvider.future);
-    if (uid == null) return null;
-    final move = await repo.readMove(cid, uid);
-    if (move == null || move.to == cid) return null;
+    if (uid == null) return none;
+    final ({String to, CourseRecord record})? move;
+    try {
+      move = await repo.readMove(cid, uid);
+    } catch (e) {
+      // 상자가 있는지도 모르면 지워졌는지도 판단하지 않아요
+      debugPrint('반 옮기기 확인 실패(다음에 다시): $e');
+      return pending;
+    }
+    if (move == null || move.to == cid) return none;
     final target = await courses.fetch(move.to);
     if (target == null) {
       // 옮길 반이 없어졌으면 상자만 비우고 지금 반에 그대로 있어요
       await repo.finishMove(cid, uid).catchError((_) {});
-      return null;
+      return none;
     }
-    if (ref.read(selectedCourseIdProvider) != cid) return null;
+    if (ref.read(selectedCourseIdProvider) != cid) return pending;
     final carried = store.record(cid).fillFrom(move.record).onlyFor(target);
     await store.saveRecord(target.id, store.record(target.id).fillFrom(carried));
     await selected.select(target.id);
@@ -133,10 +144,10 @@ Future<Course?> takeMove(WidgetRef ref) async {
     } catch (e) {
       debugPrint('옛 반 정리 실패(옮기기는 끝남): $e');
     }
-    return target;
+    return (moved: target, pending: false);
   } catch (e) {
-    debugPrint('반 옮기기 확인 실패(다음에 다시): $e');
-    return null;
+    debugPrint('반 옮기기 실패(다음에 다시): $e');
+    return pending;
   }
 }
 
@@ -238,19 +249,24 @@ final adminClassMembersProvider = StreamProvider.autoDispose.family<List<Member>
   return ref.watch(adminRosterRepositoryProvider).watchMembers(cid);
 });
 
-/// 관리자 '사용자 관리': 모든 반(숨긴 반·지난 학기 포함) 사람을 한 번씩 읽어 이름순으로. 반 옮기는 중이면 옮길 반 id도.
+/// 관리자 '사용자 관리': 모든 반(숨긴 반·지난 학기 포함) 사람을 한 번씩 읽어 이름순으로.
+/// 옮기기 상자가 남은 사람은 그 폰이 아직 있는 반 id도 같이(다시 옮길 때 상자를 같은 자리에 써야 해서).
 /// 실시간 구독 대신 한 번만 읽어요(반이 많아도 구독이 쌓이지 않게). 새로 고침은 invalidate.
 final adminUsersProvider = FutureProvider.autoDispose<List<UserEntry>>((ref) async {
   final courses = await ref.watch(allCoursesProvider.future);
   final repo = ref.watch(adminRosterRepositoryProvider);
-  final perCourse = await Future.wait([
-    for (final c in courses)
-      (
-        repo.fetchMembers(c.id),
-        repo.fetchMoves(c.id),
-      ).wait.then((r) => [for (final m in r.$1) (course: c, member: m, movingTo: r.$2[m.uid])]),
+  final (members, moves) = await (
+    Future.wait([for (final c in courses) repo.fetchMembers(c.id)]),
+    Future.wait([for (final c in courses) repo.fetchMoves(c.id)]),
+  ).wait;
+  final phoneCid = {
+    for (var i = 0; i < courses.length; i++)
+      for (final uid in moves[i].keys) uid: courses[i].id,
+  };
+  return sortUsers([
+    for (var i = 0; i < courses.length; i++)
+      for (final m in members[i]) (course: courses[i], member: m, phoneCid: phoneCid[m.uid]),
   ]);
-  return sortUsers(perCourse.expand((e) => e));
 });
 
 /// 관리자 반 목록이 보일 때 지금 학기 반들의 기록을 한 번씩 미리 받아 둬요.

@@ -73,7 +73,7 @@ class _UserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (:course, :member, :movingTo) = entry;
+    final (:course, :member, :phoneCid) = entry;
     final older = member.older.length;
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -87,14 +87,13 @@ class _UserTile extends StatelessWidget {
       ),
       subtitle: Text(
         '${member.device == null ? '' : '${member.device!.label} · '}'
-        '${memberDocLine(member)}${older == 0 ? '' : ' · 같은 이름 예전 $older'}'
-        '${movingTo == null ? '' : ' · 반 옮기는 중'}',
+        '${memberDocLine(member)}${older == 0 ? '' : ' · 같은 이름 예전 $older'}',
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: () => showMemberSheet(context, course, member, [
         for (final u in all)
           if (u.course.id == course.id) u.member,
-      ], movingTo: movingTo),
+      ], phoneCid: phoneCid),
     );
   }
 }

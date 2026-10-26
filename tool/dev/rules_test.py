@@ -160,6 +160,8 @@ def main() -> None:
     check("관리자: 없는 반으로 옮기기", put("courses/c1/moves/u2", {**mv, "to": "nope"}, admin, "at"), False)
     check("관리자: 같은 반으로 옮기기", put("courses/c1/moves/u2", {**mv, "to": "c1"}, admin, "at"), False)
     check("관리자: 옮기기에 모르는 필드", put("courses/c1/moves/u2", {**mv, "x": 1}, admin, "at"), False)
+    check("관리자: 새 반에 출석부 사본 만들기", put("courses/c2/members/u3", rec, admin, "updatedAt"), True)
+    check("반장: 남의 출석부 사본 만들기", put("courses/c2/members/u3", rec, u2, "updatedAt"), False)
     check("관리자: 옮기는 중 목록 읽기", list_("courses/c1/moves", admin), True)
     check("다른 폰: 남의 옮기기 읽기", get("courses/c1/moves/u1", u2), False)
     check("옮길 폰: 옮기기 읽기", get("courses/c1/moves/u1", u1), True)

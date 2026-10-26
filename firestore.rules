@@ -90,7 +90,8 @@ service cloud.firestore {
       // 반 사람 한 명의 체크 기록 (문서 id = 그 폰의 익명 uid). 본인만 쓰고, 본인·반장·총무·관리자만 읽어요.
       match /members/{uid} {
         allow read: if isAdmin() || isLeader() || (request.auth != null && request.auth.uid == uid);
-        allow create, update: if request.auth != null && request.auth.uid == uid
+        // 관리자: 반을 옮길 때 새 반에 사본을 바로 만들어요
+        allow create, update: if (isAdmin() || (request.auth != null && request.auth.uid == uid))
           && request.resource.data.keys().hasOnly(['name', 'record', 'updatedAt', 'device'])
           // 기기 종류 (시험 운영 기간에만 앱이 올려요, 없어도 돼요)
           && (!('device' in request.resource.data) || (request.resource.data.device is string && request.resource.data.device.size() <= 10))
@@ -112,7 +113,7 @@ service cloud.firestore {
           && request.resource.data.record is map && request.resource.data.record.size() <= 60;
       }
 
-      // 관리자가 남기는 반 옮기기 (문서 id = 옮길 폰의 익명 uid, to = 옮길 반 id, record = 같이 들고 갈 예전 기록).
+      // 관리자가 남기는 반 옮기기 (문서 id = 옮길 폰의 익명 uid, 그 폰이 고른 채로 있는 반에 둬요. to = 옮길 반 id, record = 같이 들고 갈 예전 기록).
       // 관리자만 넣고, 그 폰만 읽고 옮긴 뒤 지워요.
       match /moves/{uid} {
         allow read, delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
