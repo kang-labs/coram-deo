@@ -141,13 +141,14 @@ def step2(img, x, y):
         d.text((cx, top + 204), label, font=font(False, 14), fill=SOFT, anchor='mm')
     # 목록
     ly = top + 240
-    rows = ['복사', '읽기 목록에 추가', '홈 화면에 추가', '페이지에서 찾기']
-    d.rounded_rectangle([sx0 + 18, ly, sx1 - 18, ly + 4 * 62], radius=18, fill=WHITE)
+    rows = ['복사', '읽기 목록에 추가', '홈 화면에 추가', '페이지에서 찾기', '더 보기']
+    d.rounded_rectangle([sx0 + 18, ly, sx1 - 18, ly + len(rows) * 62], radius=18, fill=WHITE)
     for i, label in enumerate(rows):
         ry = ly + i * 62
         if i:
             d.line([sx0 + 34, ry, sx1 - 34, ry], fill=LINE, width=2)
-        d.text((sx0 + 38, ry + 31), label, font=font(i == 2, 21), fill=INK, anchor='lm')
+        more = label == '더 보기'
+        d.text((sx0 + 38, ry + 31), label, font=font(i == 2 or more, 21), fill=BLUE if more else INK, anchor='lm')
         if i == 2:
             # ⊞ 아이콘
             bx = sx1 - 64
@@ -155,6 +156,12 @@ def step2(img, x, y):
             d.line([bx, ry + 23, bx, ry + 39], fill=INK, width=3)
             d.line([bx - 8, ry + 31, bx + 8, ry + 31], fill=INK, width=3)
             ring(d, (sx0 + 18, ry + 2, sx1 - 18, ry + 60), r=16)
+        if more:
+            # 홈 화면에 추가가 안 보일 때 누를 곳 (점선 대신 얇은 테두리)
+            bx = sx1 - 64
+            d.line([bx - 9, ry + 26, bx, ry + 36, bx + 9, ry + 26], fill=BLUE, width=3)
+            x0, y0, x1, y1 = sx0 + 18, ry + 2, sx1 - 18, ry + 60
+            d.rounded_rectangle([x0 - 6, y0 - 6, x1 + 6, y1 + 6], radius=16, outline=MARK, width=3)
 
 
 def step3(img, x, y):
@@ -228,7 +235,7 @@ def step4(img, x, y):
 
 STEPS = [
     (step1, '주소창 옆 ··· → 공유', '공유 버튼 {share} 이 보이면 바로 눌러요'),
-    (step2, '“홈 화면에 추가” 누르기', '안 보이면 목록을 위로 올려요'),
+    (step2, '“홈 화면에 추가” 누르기', '안 보이면 맨 아래 “더 보기”를 눌러요'),
     (step3, '“웹 앱으로 열기” 켜고 “추가”', '켜져 있으면 그대로 “추가”'),
     (step4, '홈 화면 아이콘으로 열기', '반은 처음 한 번 다시 골라요'),
 ]
