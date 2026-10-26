@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/dialogs.dart';
 import '../../../app/layout.dart';
 import '../../../app/widgets.dart';
+import '../../../core/admin.dart';
 import '../../../core/models/course.dart';
 import '../../../core/models/course_defaults.dart';
 import '../../course/data/course_repository.dart';
@@ -30,7 +31,10 @@ class AdminScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('관리자 모드'),
         actions: [
-          if (isAdmin && (ref.watch(signedInWithGoogleProvider).valueOrNull ?? false))
+          // 숫자 비밀번호 로그인은 첫 번째 관리자 계정만 써서, 그 계정으로 구글 로그인했을 때만 바꿀 수 있어요
+          if (isAdmin &&
+              user?.email?.toLowerCase() == adminEmails.first &&
+              (ref.watch(signedInWithGoogleProvider).valueOrNull ?? false))
             IconButton(
               tooltip: '관리자 비밀번호 바꾸기',
               onPressed: () => _changePin(context, ref),

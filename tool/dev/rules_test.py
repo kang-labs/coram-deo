@@ -133,6 +133,11 @@ def main() -> None:
 
     check("관리자: 코드 읽기", get("courses/c1/private/codes", admin), True)
     check("관리자: 반 사람 목록 읽기", list_("courses/c1/members", admin), True)
+    admin2 = token("adm2", "kanglabscontact@gmail.com", True, "google.com")
+    stranger = token("str", "someone@gmail.com", True, "google.com")
+    check("두 번째 관리자(구글): 코드 읽기", get("courses/c1/private/codes", admin2), True)
+    check("두 번째 관리자(구글): 반 사람 목록 읽기", list_("courses/c1/members", admin2), True)
+    check("관리자 아닌 구글 계정: 코드 읽기", get("courses/c1/private/codes", stranger), False)
     check("반장: 남의 문서 지우기", req("DELETE", f"{BASE}/courses/c1/members/u1", u2), False)
     check("관리자: 반 사람 지우기", req("DELETE", f"{BASE}/courses/c1/members/u1", admin), True)
     check("관리자: 반장 인정 풀기", req("DELETE", f"{BASE}/courses/c1/leaders/u3", admin), True)
