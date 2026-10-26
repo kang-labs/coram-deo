@@ -227,7 +227,7 @@ def step4(img, x, y):
 
 
 STEPS = [
-    (step1, '주소창 옆 ··· → 공유', '공유 버튼 □↑ 이 보이면 바로 눌러요'),
+    (step1, '주소창 옆 ··· → 공유', '공유 버튼 {share} 이 보이면 바로 눌러요'),
     (step2, '“홈 화면에 추가” 누르기', '안 보이면 목록을 위로 올려요'),
     (step3, '“웹 앱으로 열기” 켜고 “추가”', '켜져 있으면 그대로 “추가”'),
     (step4, '홈 화면 아이콘으로 열기', '반은 처음 한 번 다시 골라요'),
@@ -253,7 +253,14 @@ def main():
         d.text((x + 26, cy + 25), str(i + 1), font=font(True, 30), fill=CROSS, anchor='mm')
         d.text((x + 66, cy + 26), cap, font=font(True, 26), fill=INK, anchor='lm')
         if sub:
-            d.text((x + 66, cy + 72), sub, font=font(False, 20), fill=SOFT, anchor='lm')
+            # {share}는 글자 대신 공유 아이콘을 그려요(글꼴에 따라 □↑ 기호가 깨져 보여서)
+            f, tx = font(False, 20), x + 66
+            for k, part in enumerate(sub.split('{share}')):
+                if k:
+                    share_glyph(d, tx + 14, cy + 70, 9, SOFT)
+                    tx += 28
+                d.text((tx, cy + 72), part, font=f, fill=SOFT, anchor='lm')
+                tx += d.textlength(part, font=f)
     ny = title_h + 2 * (PHONE_H + cap_h) + 10
     d.rounded_rectangle([70, ny, W - 70, ny + 200], radius=24, fill=WHITE, outline=LINE, width=2)
     d.multiline_text(
