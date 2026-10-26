@@ -122,7 +122,7 @@ class _RosterViewState extends ConsumerState<RosterView> {
       error: (e, _) =>
           EmptyState(icon: Icons.cloud_off_rounded, title: '출석부를 못 불러왔어요', message: '인터넷 연결을 확인해 주세요.\n($e)'),
       data: (members) => ListView(
-        padding: EdgeInsets.fromLTRB(wide ? 8 : AppLayout.sidePadding, 4, wide ? 8 : AppLayout.sidePadding, 24),
+        padding: AppLayout.listPadding(context, top: 4, side: wide ? 8 : AppLayout.sidePadding),
         children: [
           header,
           const SizedBox(height: 8),

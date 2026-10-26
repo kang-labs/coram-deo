@@ -193,7 +193,7 @@ class _SignInViewState extends ConsumerState<_SignInView> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 32, AppLayout.sidePadding, 24),
+      padding: AppLayout.listPadding(context, top: 32),
       children: [
         const Center(child: IconBubble(icon: Icons.admin_panel_settings_rounded, size: 64)),
         const SizedBox(height: 16),
@@ -320,7 +320,7 @@ class _CourseAdminList extends ConsumerWidget {
           child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
         );
         return ListView(
-          padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 96),
+          padding: AppLayout.listPadding(context, bottom: 96),
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 10),

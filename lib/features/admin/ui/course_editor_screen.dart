@@ -211,7 +211,8 @@ Widget _field(
   );
 }
 
-const _listPadding = EdgeInsets.fromLTRB(AppLayout.sidePadding, 16, AppLayout.sidePadding, 32);
+/// 편집 탭 목록 여백 (아래는 시스템 바 높이까지)
+EdgeInsets _listPadding(BuildContext context) => AppLayout.listPadding(context, top: 16, bottom: 32);
 
 class _BasicSection extends StatelessWidget {
   const _BasicSection({
@@ -232,7 +233,7 @@ class _BasicSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = draft;
     return ListView(
-      padding: _listPadding,
+      padding: _listPadding(context),
       children: [
         _field(
           'name$gen',
@@ -453,7 +454,7 @@ class _ScheduleSectionState extends State<_ScheduleSection> {
     final g = widget.gen;
     final first = tryParseYmd(_first);
     return ListView(
-      padding: _listPadding,
+      padding: _listPadding(context),
       children: [
         SoftCard(
           padding: const EdgeInsets.all(16),
@@ -674,7 +675,7 @@ class _ItemsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ReorderableListView.builder(
-      padding: _listPadding,
+      padding: _listPadding(context),
       buildDefaultDragHandles: false,
       header: const Padding(
         padding: EdgeInsets.only(bottom: 12),
@@ -847,7 +848,7 @@ class _GuideSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: _listPadding,
+      padding: _listPadding(context),
       children: [
         _field(
           'guide$gen',

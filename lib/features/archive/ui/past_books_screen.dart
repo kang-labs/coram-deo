@@ -28,7 +28,7 @@ class PastBooksScreen extends ConsumerWidget {
               message: '새 학기가 시작되거나 반을 바꾸면 전에 체크한 기록이 여기에 모여요.',
             )
           : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 24),
+              padding: AppLayout.listPadding(context),
               itemCount: books.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, i) {

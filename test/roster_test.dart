@@ -1,4 +1,5 @@
 import 'package:coram_deo/app/app.dart';
+import 'package:coram_deo/app/layout.dart';
 import 'package:coram_deo/app/theme.dart';
 import 'package:coram_deo/core/device_kind.dart';
 import 'package:coram_deo/core/local_storage.dart';
@@ -182,10 +183,13 @@ void main() {
     tester.view.physicalSize = const Size(320 * 2.7, 2000);
     tester.view.devicePixelRatio = 2.7;
     addTearDown(tester.view.reset);
-    final long = fakeCourse().copyWith(name: '아주아주긴이름의제자대학훈련과정2학기반');
+    final long = fakeCourse().copyWith(id: 'long', name: '아주아주긴이름의제자대학훈련과정2학기반');
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
           adminUsersProvider.overrideWith(
             (ref) async => sortUsers([
               (course: long, member: _m('1', '홍길동가나다라마바사아자차카타파하', 1), phoneCid: 'other'),
@@ -211,6 +215,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('김철수'), findsOneWidget);
     expect(find.textContaining('홍길동'), findsNothing);
+
+    // 반별 보기: 반 이름(사람 수) 머리글, 줄에는 반 배지 없음, 고른 방식 기억
+    await tester.enterText(find.byType(TextField), '');
+    await tester.tap(find.text('반별'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('제자대학2학기 · 1명'), findsOneWidget);
+    expect(find.text('아주아주긴이름의제자대학훈련과정2학기반 · 1명'), findsOneWidget);
+    expect(find.text('제자대학2학기'), findsNothing);
+    expect(prefs.getString('usersView'), 'byCourse');
+  });
+
+  testWidgets('목록 여백: 하단 시스템 바 높이를 더해요', (tester) async {
+    late EdgeInsets pad;
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(padding: EdgeInsets.only(bottom: 48)),
+        child: Builder(
+          builder: (context) {
+            pad = AppLayout.listPadding(context);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    expect(pad.bottom, 24 + 48);
+    expect(pad.left, AppLayout.sidePadding);
   });
 
   testWidgets('사용자 관리 창: 데이터 가져와 주기 → 같은 이름 먼저·이름 찾기 → 확인 창, 지우기 확인 창', (tester) async {
