@@ -7,7 +7,9 @@ import 'package:coram_deo/features/course/logic/course_providers.dart';
 import 'package:coram_deo/features/record/data/course_record.dart';
 import 'package:coram_deo/features/roster/data/roster_repository.dart';
 import 'package:coram_deo/features/roster/logic/roster_providers.dart';
+import 'package:coram_deo/features/roster/ui/member_sheet.dart';
 import 'package:coram_deo/features/roster/ui/roster_view.dart';
+import 'package:coram_deo/features/roster/ui/users_screen.dart';
 import 'package:coram_deo/features/week/logic/week_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -120,7 +122,7 @@ void main() {
     expect(find.textContaining('출석부 이미지로 저장'), findsOneWidget);
   });
 
-  testWidgets('출석부: 관리자만 번호 보기·이름 눌러 돌려주기/지우기 창', (tester) async {
+  testWidgets('출석부는 보기만: 번호 안 보이고 이름 눌러도 창 없음', (tester) async {
     tester.view.physicalSize = const Size(1080, 4000);
     tester.view.devicePixelRatio = 2.7;
     addTearDown(tester.view.reset);
@@ -128,36 +130,122 @@ void main() {
       _m('newUid1234', '이순신', 9),
       _m('oldUid5678', '이순신', 1, CourseRecord.empty.withValue(6, 'attend', 'att', 'o')),
     ]);
-    Future<void> pump(bool canRemove) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [todayProvider.overrideWith(_FixedToday.new)],
-          child: MaterialApp(
-            theme: AppTheme.of(AppThemeId.fallback),
-            home: Scaffold(
-              body: RosterView(course: fakeCourse(), members: AsyncData(members), canManage: canRemove),
-            ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [todayProvider.overrideWith(_FixedToday.new)],
+        child: MaterialApp(
+          theme: AppTheme.of(AppThemeId.fallback),
+          home: Scaffold(
+            body: RosterView(course: fakeCourse(), members: AsyncData(members), canSave: true),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-    }
-
-    await pump(false);
+      ),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('이순신'));
     await tester.pumpAndSettle();
     expect(find.textContaining('지울까요'), findsNothing);
     expect(find.textContaining('보기만 할 수 있어요'), findsOneWidget);
     expect(find.textContaining('newUid'), findsNothing);
+    expect(find.textContaining('예전'), findsNothing);
+  });
 
-    await pump(true);
-    expect(find.text('newUid · 예전 1'), findsOneWidget);
-    expect(find.textContaining('예전 기록 돌려주기·지우기'), findsOneWidget);
-    await tester.tap(find.text('이순신'));
+  test('사용자 관리: 이름순·반 순서, 이름 찾기, 가져올 기록 후보(같은 이름 먼저, 빈 기록·본인 빼기)', () {
+    final rec = CourseRecord.empty.withValue(1, 'attend', 'att', 'o');
+    final a = fakeCourse().copyWith(order: 2);
+    final b = fakeCourse().copyWith(order: 1);
+    final users = sortUsers([
+      (course: a, member: _m('1', '이순신', 1)),
+      (course: a, member: _m('2', '강감찬', 1)),
+      (course: b, member: _m('3', '이순신', 1)),
+    ]);
+    expect([for (final u in users) u.member.uid], ['2', '3', '1']);
+    expect(nameMatches('홍 길동A', '길동a'), isTrue);
+    expect(nameMatches('홍길동', '이순'), isFalse);
+    expect(nameMatches('홍길동', ' '), isTrue);
+
+    final members = latestByName([
+      _m('new', '홍길동', 9),
+      _m('old', '홍 길동', 1, rec),
+      _m('empty', '홍길동', 0),
+      _m('kim', '김철수', 5, rec),
+      _m('ahn', '안창호', 5, rec),
+    ]);
+    final target = members.firstWhere((m) => m.uid == 'new');
+    final c = importCandidates(members, target);
+    expect([for (final d in c.sameName) d.uid], ['old']);
+    expect([for (final d in c.others) d.uid], ['kim', 'ahn']);
+  });
+
+  testWidgets('사용자 관리 화면 320dp: 반 이름 옆에, 찾기, 긴 반 이름도 넘침 없음', (tester) async {
+    tester.view.physicalSize = const Size(320 * 2.7, 2000);
+    tester.view.devicePixelRatio = 2.7;
+    addTearDown(tester.view.reset);
+    final long = fakeCourse().copyWith(name: '아주아주긴이름의제자대학훈련과정2학기반');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          adminUsersProvider.overrideWith(
+            (ref) async => sortUsers([
+              (course: long, member: _m('1', '홍길동가나다라마바사아자차카타파하', 1)),
+              (course: fakeCourse(), member: _m('2', '김철수', 1)),
+            ]),
+          ),
+        ],
+        child: MaterialApp(theme: AppTheme.of(AppThemeId.fallback), home: const UsersScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('제자대학2학기'), findsOneWidget);
+    expect(find.textContaining('2명'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '철수');
+    await tester.pumpAndSettle();
+    expect(find.text('김철수'), findsOneWidget);
+    expect(find.textContaining('홍길동'), findsNothing);
+  });
+
+  testWidgets('사용자 관리 창: 데이터 가져와 주기 → 같은 이름 먼저·이름 찾기 → 확인 창, 지우기 확인 창', (tester) async {
+    tester.view.physicalSize = const Size(1080, 4000);
+    tester.view.devicePixelRatio = 2.7;
+    addTearDown(tester.view.reset);
+    final rec = CourseRecord.empty.withValue(1, 'attend', 'att', 'o');
+    final members = latestByName([_m('new', '이순신', 9), _m('old', '이순신', 1, rec), _m('kim', '김철수', 5, rec)]);
+    final target = members.firstWhere((m) => m.uid == 'new');
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.of(AppThemeId.fallback),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showMemberSheet(context, fakeCourse(), target, members),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
     await tester.pumpAndSettle();
     expect(find.textContaining('같은 이름 예전 기록 1개'), findsOneWidget);
-    expect(find.textContaining('번호 oldUid'), findsOneWidget);
-    expect(find.text('예전 기록 돌려주기'), findsOneWidget);
+    expect(find.textContaining('newUid'), findsNothing);
+
+    await tester.tap(find.text('데이터 가져와 주기'));
+    await tester.pumpAndSettle();
+    expect(find.text('같은 이름 기록'), findsOneWidget);
+    expect(find.text('다른 이름 기록'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '철수');
+    await tester.pumpAndSettle();
+    expect(find.text('같은 이름 기록'), findsNothing);
+    await tester.tap(find.text('김철수'));
+    await tester.pumpAndSettle();
+    expect(find.text('기록을 가져와 줄까요?'), findsOneWidget);
+    expect(find.textContaining('이름이 달라요'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('출석부에서 지우기'));
     await tester.pumpAndSettle();
     expect(find.text('이순신 님을 출석부에서 지울까요?'), findsOneWidget);
@@ -177,7 +265,6 @@ void main() {
     expect(merged.value(2, 'attend', 'att'), 'late'); // 빈 칸만 채움
     expect(merged.weekCount, 2);
     expect(a.fillFrom(CourseRecord.empty), a);
-    expect(shortUid('abcdefghij'), 'abcdef');
   });
 
   test('반장·총무 코드 물을 때: 이름이 지정됐고, 아직 인정 안 됐을 때만', () async {

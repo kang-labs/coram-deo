@@ -45,7 +45,7 @@ class _NameScreenState extends ConsumerState<NameScreen> {
                 children: [
                   Text('하나님앞에서', style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 8),
-                  const MutedText('본명을 적어 주세요. 반장·총무가 출석부에서 이 이름으로 봐요.', style: TextStyle(fontSize: 15, height: 1.6)),
+                  const MutedText('본명을 적어 주세요.', style: TextStyle(fontSize: 15, height: 1.6)),
                   const SizedBox(height: 24),
                   TextField(
                     controller: _controller,

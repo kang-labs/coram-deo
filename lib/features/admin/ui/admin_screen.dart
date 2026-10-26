@@ -14,6 +14,7 @@ import '../logic/admin_providers.dart';
 import 'course_editor_screen.dart';
 import '../../roster/logic/roster_providers.dart';
 import '../../roster/ui/roster_tab.dart';
+import '../../roster/ui/users_screen.dart';
 import 'leaders_sheet.dart';
 
 /// 관리자 모드: 구글 로그인(관리자 이메일만) → 반 목록
@@ -317,6 +318,25 @@ class _CourseAdminList extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 8, AppLayout.sidePadding, 96),
           children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: SoftCard(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const UsersScreen())),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CardHeader(
+                      icon: Icons.people_alt_rounded,
+                      title: '사용자 관리',
+                      trailing: Icon(Icons.chevron_right_rounded),
+                    ),
+                    SizedBox(height: 6),
+                    MutedText('모든 반 사람 보기 · 데이터 가져와 주기 · 출석부에서 지우기', style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
             if (known != null)
               _SemesterCard(semester: semester, current: now, next: next, all: list)
             else

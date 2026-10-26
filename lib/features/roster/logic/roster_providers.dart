@@ -195,6 +195,17 @@ final adminClassMembersProvider = StreamProvider.autoDispose.family<List<Member>
   return ref.watch(adminRosterRepositoryProvider).watchMembers(cid);
 });
 
+/// 관리자 '사용자 관리': 모든 반(숨긴 반·지난 학기 포함) 사람을 한 번씩 읽어 이름순으로.
+/// 실시간 구독 대신 한 번만 읽어요(반이 많아도 구독이 쌓이지 않게). 새로 고침은 invalidate.
+final adminUsersProvider = FutureProvider.autoDispose<List<UserEntry>>((ref) async {
+  final courses = await ref.watch(allCoursesProvider.future);
+  final repo = ref.watch(adminRosterRepositoryProvider);
+  final perCourse = await Future.wait([
+    for (final c in courses) repo.fetchMembers(c.id).then((ms) => [for (final m in ms) (course: c, member: m)]),
+  ]);
+  return sortUsers(perCourse.expand((e) => e));
+});
+
 /// 관리자 반 목록이 보일 때 지금 학기 반들의 기록을 한 번씩 미리 받아 둬요.
 /// 키는 반 id를 쉼표로 이은 글자라, 목록이 그대로면 다시 그려져도 한 번만 받아요.
 final adminPrefetchProvider = FutureProvider.autoDispose.family<void, String>((ref, joinedIds) async {

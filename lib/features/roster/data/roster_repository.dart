@@ -51,8 +51,33 @@ List<Member> latestByName(Iterable<Member> members) {
   ]..sort((a, b) => a.name.compareTo(b.name));
 }
 
-/// 익명 로그인 번호 앞 6자리 (동명이인을 구별하려고 작게 보여 줘요)
-String shortUid(String uid) => uid.length <= 6 ? uid : uid.substring(0, 6);
+/// 관리자 '사용자 관리' 한 줄: 어느 반의 누구인지
+typedef UserEntry = ({Course course, Member member});
+
+/// 사용자 관리 목록 순서: 이름 가나다순, 같은 이름이면 반 순서
+List<UserEntry> sortUsers(Iterable<UserEntry> users) => users.toList()
+  ..sort((a, b) {
+    final n = a.member.name.compareTo(b.member.name);
+    return n != 0 ? n : a.course.order.compareTo(b.course.order);
+  });
+
+/// 이름 검색 (띄어쓰기·대소문자 무시, 일부만 맞아도). 빈 검색이면 전부.
+bool nameMatches(String name, String query) {
+  final q = normalizeName(query);
+  return q.isEmpty || normalizeName(name).contains(q);
+}
+
+/// [target]에게 기록을 가져와 줄 수 있는 같은 반 문서들. 같은 이름(예전 기록)을 먼저, 나머지는 이름순.
+/// [courseMembers]는 그 반 출석부(같은 이름은 [Member.older]에 담긴 것)예요. 기록이 빈 문서는 빼요.
+({List<Member> sameName, List<Member> others}) importCandidates(List<Member> courseMembers, Member target) {
+  final key = normalizeName(target.name);
+  final docs = [
+    for (final m in courseMembers) ...[m, ...m.older],
+  ].where((d) => d.uid != target.uid && !d.record.isEmpty);
+  final same = [for (final d in docs) if (normalizeName(d.name) == key) d];
+  final others = [for (final d in docs) if (normalizeName(d.name) != key) d]..sort((a, b) => a.name.compareTo(b.name));
+  return (sameName: same, others: others);
+}
 
 /// 출석부 순서: 반장 → 총무 → 나머지 이름 가나다순. 반장·총무 줄 이름 아래에 보일 역할 글도 같이.
 List<({Member member, String? role})> rosterOrder(List<Member> members, Course course) {
@@ -169,12 +194,19 @@ class RosterRepository {
     return count;
   }
 
-  /// 관리자: 같은 이름 예전 문서들의 기록을 [to]의 폰에 돌려줘요. 그 폰이 다음에 앱을 열면 빈 칸만 채워요.
-  /// 예전 기록(최근 것 먼저)을 하나로 합치고, 아직 안 가져간 돌려주기가 있으면 그것도 합쳐요.
-  /// 한 번에(batch) 돌려주기 상자를 채우고 예전 문서와 그 반장·총무 인정을 지워요.
-  Future<void> giveBackOlder(String cid, Member to) async {
+  /// 관리자: 반 사람 전부를 한 번 읽어요(사용자 관리). 같은 이름은 [Member.older]에.
+  Future<List<Member>> fetchMembers(String cid) async {
+    final s = await _course(cid).collection('members').get();
+    return latestByName([for (final d in s.docs) ?Member.fromDoc(d.id, d.data())]);
+  }
+
+  /// 관리자: [from] 문서들의 기록을 같은 반 [to]의 폰에 가져와 줘요. 그 폰이 다음에 앱을 열면 빈 칸만 채워요.
+  /// [from] 순서대로(앞이 먼저) 합치고, 아직 안 가져간 상자가 있으면 그것도 합쳐요.
+  /// 한 번에(batch) 상자를 채우고, [from] 문서와 그 반장·총무 인정을 출석부에서 지워요(같은 사람이 두 줄로 나오지 않게).
+  Future<void> giveBack(String cid, Member to, List<Member> from) async {
+    assert(from.every((o) => o.uid != to.uid));
     var merged = CourseRecord.empty;
-    for (final o in to.older) {
+    for (final o in from) {
       merged = merged.fillFrom(o.record);
     }
     final pending = await _restore(cid, to.uid).get(const GetOptions(source: Source.server));
@@ -183,10 +215,10 @@ class RosterRepository {
     final batch = _db.batch();
     batch.set(_restore(cid, to.uid), {
       'record': jsonDecode(merged.toJson()),
-      'fromName': to.name,
+      'fromName': {for (final o in from) o.name}.join(', '),
       'at': FieldValue.serverTimestamp(),
     });
-    for (final o in to.older) {
+    for (final o in from) {
       batch.delete(_course(cid).collection('members').doc(o.uid));
       batch.delete(_course(cid).collection('leaders').doc(o.uid));
     }

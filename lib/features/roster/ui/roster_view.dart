@@ -11,27 +11,19 @@ import '../../week/logic/week_math.dart';
 import '../../week/logic/week_providers.dart';
 import '../../week/ui/week_range_text.dart';
 import '../data/roster_repository.dart';
-import 'member_sheet.dart';
 
 /// 넓은 화면(가로·폴드 펼침) 기준. 체크표와 같게.
 const double _wideWidth = 600;
 
 /// 반 출석부: 주차를 고르면 반 사람들(가나다순) × 항목 표. 보기만 해요.
-/// 반장·총무 탭과 관리자 화면이 같이 써요. [canSave]면(관리자) 그 주 표를 그림으로 저장할 수 있고,
-/// [canManage]면(관리자) 이름 아래에 익명 번호가 작게 보이고, 이름을 눌러 예전 기록 돌려주기·지우기를 할 수 있어요.
+/// 반장·총무 탭과 관리자 화면이 같이 써요. [canSave]면(관리자) 그 주 표를 그림으로 저장할 수 있어요.
+/// 사람 관리(기록 가져와 주기·지우기)는 관리자 모드의 '사용자 관리'에서 해요.
 class RosterView extends ConsumerStatefulWidget {
-  const RosterView({
-    super.key,
-    required this.course,
-    required this.members,
-    this.canSave = false,
-    this.canManage = false,
-  });
+  const RosterView({super.key, required this.course, required this.members, this.canSave = false});
 
   final Course course;
   final AsyncValue<List<Member>> members;
   final bool canSave;
-  final bool canManage;
 
   @override
   ConsumerState<RosterView> createState() => _RosterViewState();
@@ -59,16 +51,7 @@ class _RosterViewState extends ConsumerState<RosterView> {
         for (final r in rows)
           RecordGridRow(
             title: r.member.name,
-            subtitle: widget.canManage
-                ? [
-                    ?r.role,
-                    shortUid(r.member.uid),
-                    if (r.member.older.isNotEmpty) '예전 ${r.member.older.length}',
-                  ].join(' · ')
-                : r.role,
-            onTap: widget.canManage && mode != GridLayoutMode.full
-                ? () => showMemberSheet(context, _c, r.member)
-                : null,
+            subtitle: r.role,
           ),
       ],
       cellBuilder: (i, item, part, metrics) => RecordCellView.fromRecord(
@@ -157,7 +140,7 @@ class _RosterViewState extends ConsumerState<RosterView> {
             const SizedBox(height: 12),
             MutedText(
               '${members.length}명 · 반장·총무 먼저, 나머지는 가나다순 · '
-              '${widget.canManage ? '이름을 누르면 예전 기록 돌려주기·지우기를 할 수 있어요.' : '보기만 할 수 있어요.'}'
+              '보기만 할 수 있어요.'
               '${wide ? '' : ' 폰을 가로로 돌리면 표가 한눈에 보여요.'}',
               style: const TextStyle(fontSize: 13),
             ),
