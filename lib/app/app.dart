@@ -63,18 +63,25 @@ class _WidthFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
     const maxWidth = AppLayout.maxContentWidth;
-    if (mq.size.width <= maxWidth) return child;
+    // 폰을 가로로 돌리면 시스템 하단바(뒤로가기·홈)와 카메라 구멍이 옆으로 와요.
+    // 그 폭만큼 양옆을 비워(배경색으로 칠함) 화면이 겹치지 않게 해요. 위·아래는 각 화면(AppBar·하단 탭)이 맡아요.
     return ColoredBox(
       color: background,
-      child: Center(
-        child: SizedBox(
-          width: maxWidth,
-          child: MediaQuery(
-            data: mq.copyWith(size: Size(maxWidth, mq.size.height)),
-            child: child,
-          ),
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final mq = MediaQuery.of(context);
+            final width = c.maxWidth < maxWidth ? c.maxWidth : maxWidth;
+            return Center(
+              child: SizedBox(
+                width: width,
+                child: MediaQuery(data: mq.copyWith(size: Size(width, mq.size.height)), child: child),
+              ),
+            );
+          },
         ),
       ),
     );
