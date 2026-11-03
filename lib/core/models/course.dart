@@ -327,6 +327,8 @@ class Course {
     this.semester = 0,
     this.chief = '',
     this.treasurer = '',
+    this.chiefUid = '',
+    this.treasurerUid = '',
     this.weekday = DateTime.saturday,
     this.time = '',
     this.order = 0,
@@ -353,14 +355,25 @@ class Course {
   /// 어느 학기 반인지 (`config/app.semester`와 같으면 지금 학기). 예전 반은 0.
   final int semester;
 
-  /// 반장·총무 이름 (관리자가 적음, 서버 `leaders: {chief, treasurer}`). 이 이름인 사람이 반 코드를 넣으면 출석부를 봐요.
+  /// 반장·총무 이름 (서버 `leaders: {chief, treasurer, chiefUid, treasurerUid}`). 관리자가 출석부에서 고른 사람이에요.
   final String chief;
   final String treasurer;
 
-  /// 이 이름이 반장·총무로 지정됐는지 (띄어쓰기 무시)
-  bool isLeaderName(String name) {
+  /// 반장·총무로 고른 사람 폰의 익명 uid (출석부 문서 id). 이름+코드로 정하던 예전 반은 ''.
+  final String chiefUid;
+  final String treasurerUid;
+
+  /// 이 사람(폰 uid, 이름)의 역할: '반장'·'총무'·null. 출석부에서 고른 반은 uid로만,
+  /// 이름+코드로 정하던 예전 반(uid 없음)은 이름으로(띄어쓰기·영문 대소문자 무시) 봐요.
+  /// 출석부를 볼 권한은 서버 `leaders/{uid}` 문서가 따로 있어야 해요.
+  String? leaderRole(String uid, String name) {
+    if (chiefUid.isNotEmpty || treasurerUid.isNotEmpty) {
+      if (uid.isEmpty) return null;
+      return uid == chiefUid ? '반장' : (uid == treasurerUid ? '총무' : null);
+    }
     final n = normalizeName(name);
-    return n.isNotEmpty && (n == normalizeName(chief) || n == normalizeName(treasurer));
+    if (n.isEmpty) return null;
+    return n == normalizeName(chief) ? '반장' : (n == normalizeName(treasurer) ? '총무' : null);
   }
 
   /// 수업 요일 (DateTime.weekday: 월1 … 일7)
@@ -414,6 +427,8 @@ class Course {
       semester: _int(m['semester'], 0),
       chief: _str(_map(m['leaders'])['chief']),
       treasurer: _str(_map(m['leaders'])['treasurer']),
+      chiefUid: _str(_map(m['leaders'])['chiefUid']),
+      treasurerUid: _str(_map(m['leaders'])['treasurerUid']),
       weekday: _int(m['weekday'], DateTime.saturday).clamp(1, 7),
       time: _str(m['time']),
       order: _int(m['order'], 0),
@@ -433,7 +448,7 @@ class Course {
     'program': program,
     'cohort': cohort,
     'semester': semester,
-    'leaders': {'chief': chief, 'treasurer': treasurer},
+    'leaders': {'chief': chief, 'treasurer': treasurer, 'chiefUid': chiefUid, 'treasurerUid': treasurerUid},
     'weekday': weekday,
     'time': time,
     'order': order,
@@ -453,6 +468,8 @@ class Course {
     int? semester,
     String? chief,
     String? treasurer,
+    String? chiefUid,
+    String? treasurerUid,
     int? weekday,
     String? time,
     int? order,
@@ -470,6 +487,8 @@ class Course {
     semester: semester ?? this.semester,
     chief: chief ?? this.chief,
     treasurer: treasurer ?? this.treasurer,
+    chiefUid: chiefUid ?? this.chiefUid,
+    treasurerUid: treasurerUid ?? this.treasurerUid,
     weekday: weekday ?? this.weekday,
     time: time ?? this.time,
     order: order ?? this.order,
@@ -492,6 +511,8 @@ class Course {
       other.semester == semester &&
       other.chief == chief &&
       other.treasurer == treasurer &&
+      other.chiefUid == chiefUid &&
+      other.treasurerUid == treasurerUid &&
       other.weekday == weekday &&
       other.time == time &&
       other.order == order &&
@@ -512,6 +533,8 @@ class Course {
     semester,
     chief,
     treasurer,
+    chiefUid,
+    treasurerUid,
     weekday,
     time,
     order,

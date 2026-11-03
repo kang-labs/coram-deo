@@ -201,17 +201,19 @@ final leaveCourseIfEmptyProvider = Provider<Future<void> Function(String cid)>(
       (cid) => leaveCourseIfEmpty(ref, cid),
 );
 
-/// 지금 반에서 내 이름이 반장·총무로 지정됐는지
-final leaderNamedProvider = Provider<bool>((ref) {
+/// 지금 반 문서에 이 폰(uid·이름)이 반장·총무로 지정됐는지.
+/// bool로 걸러서, 반 문서가 다른 일로 바뀌어도 아래 구독을 다시 만들지 않아요.
+final _leaderNamedProvider = Provider<bool>((ref) {
   final course = ref.watch(currentCourseProvider).valueOrNull;
-  final name = ref.watch(myNameProvider);
-  return course != null && course.isLeaderName(name);
+  final uid = ref.watch(memberUidProvider).valueOrNull ?? '';
+  return course?.leaderRole(uid, ref.watch(myNameProvider)) != null;
 });
 
-/// 이 폰이 지금 반의 반장·총무로 인정됐는지 (코드를 넣었는지)
+/// 이 폰이 지금 반의 반장·총무로 인정됐는지 (관리자가 출석부에서 골랐는지 = 서버 `leaders/{uid}`).
+/// 지정된 폰만 서버 문서를 구독해요(나머지 폰은 읽기를 아껴요).
 final isLeaderProvider = StreamProvider<bool>((ref) async* {
   final cid = ref.watch(selectedCourseIdProvider);
-  if (cid == null || !_firebaseReady || !ref.watch(leaderNamedProvider)) {
+  if (cid == null || !_firebaseReady || !ref.watch(_leaderNamedProvider)) {
     yield false;
     return;
   }
@@ -221,13 +223,6 @@ final isLeaderProvider = StreamProvider<bool>((ref) async* {
     return;
   }
   yield* ref.watch(rosterRepositoryProvider).watchIsLeader(cid, uid);
-});
-
-/// 지정됐는데 아직 코드를 안 넣었는지 (확인이 끝났을 때만 true)
-final leaderCodeNeededProvider = Provider<bool>((ref) {
-  final leader = ref.watch(isLeaderProvider);
-  // 반을 바꾸는 중(loading)에는 이전 반 값이 남아 있으니 기다려요
-  return ref.watch(leaderNamedProvider) && !leader.isLoading && leader.hasValue && leader.value == false;
 });
 
 /// 반장·총무가 보는 지금 반 사람들 (이름 가나다순, 같은 이름은 최근 것만)

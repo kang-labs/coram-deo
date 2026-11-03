@@ -7,10 +7,8 @@ import '../../../core/models/course.dart';
 import '../../course/logic/course_providers.dart';
 import '../../course/ui/course_picker_screen.dart';
 import '../../install/ui/install_guide.dart';
-import '../../../core/local_storage.dart';
 import '../../record/logic/record_providers.dart';
 import '../../roster/logic/roster_providers.dart';
-import '../../roster/ui/leader_code.dart';
 import '../../roster/ui/roster_tab.dart';
 import '../../schedule/ui/schedule_tab.dart';
 import '../../settings/ui/settings_tab.dart';
@@ -144,17 +142,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     super.dispose();
   }
 
-  /// 반마다 한 번만 자동으로 물어요(닫아도 설정에서 다시 넣을 수 있어요).
-  void _askLeaderCodeOnce() {
-    final cid = ref.read(selectedCourseIdProvider);
-    final prefs = ref.read(sharedPreferencesProvider);
-    if (cid == null || prefs.getBool('leaderAsked.$cid') == true) return;
-    prefs.setBool('leaderAsked.$cid', true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) askLeaderCode(context, ref);
-    });
-  }
-
   Widget _tabStack(List<HomeTab> shown, HomeTab tab, Course? course, AsyncValue<Course?> courseAsync) {
     return IndexedStack(
       index: shown.indexOf(tab),
@@ -184,10 +171,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   Widget build(BuildContext context) {
     // 내 기록을 서버에 올려요(체크가 바뀌면 3초 뒤 한 번). 반장·총무·관리자가 봐요.
     ref.watch(memberSyncProvider);
-    // 반장·총무로 정해졌는데 아직 코드를 안 넣었으면, 이 반에서 한 번 코드를 물어요.
-    ref.listen(leaderCodeNeededProvider, (_, needed) {
-      if (needed) _askLeaderCodeOnce();
-    });
     // 반을 바꾸는 중에는 이전 반 값이 남아 있으니 확인이 끝난 뒤에만 출석부 탭을 보여요
     final leaderState = ref.watch(isLeaderProvider);
     final leader = !leaderState.isLoading && (leaderState.valueOrNull ?? false);

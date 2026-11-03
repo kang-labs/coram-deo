@@ -12,8 +12,6 @@ import '../../admin/ui/admin_screen.dart';
 import '../../archive/ui/past_books_screen.dart';
 import '../../backup/ui/backup_sheet.dart';
 import '../../profile/ui/name_screen.dart';
-import '../../roster/logic/roster_providers.dart';
-import '../../roster/ui/leader_code.dart';
 import '../../course/logic/course_providers.dart';
 import '../../course/ui/course_picker_screen.dart';
 import '../../install/ui/install_guide.dart';
@@ -34,8 +32,6 @@ class SettingsTab extends ConsumerWidget {
     final name = ref.watch(myNameProvider);
     final theme = ref.watch(themeIdProvider);
     final pastCount = ref.watch(pastBooksProvider.select((b) => b.length));
-    // 반장·총무로 정해졌는데 아직 코드를 안 넣었을 때만 보여요
-    final needCode = ref.watch(leaderCodeNeededProvider);
     final rows = <_SettingRow>[
       (
         icon: Icons.school_rounded,
@@ -61,14 +57,6 @@ class SettingsTab extends ConsumerWidget {
           if (v != null) await ref.read(myNameProvider.notifier).set(v);
         },
       ),
-      if (needCode)
-        (
-          icon: Icons.badge_rounded,
-          tone: Tone.warm,
-          title: '반장·총무 코드 넣기',
-          subtitle: '관리자에게 받은 숫자 4자리를 넣으면 출석부를 볼 수 있어요',
-          onTap: () => askLeaderCode(context, ref),
-        ),
       (
         icon: Icons.history_rounded,
         tone: Tone.accent,

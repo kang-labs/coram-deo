@@ -36,6 +36,9 @@ service cloud.firestore {
         && (resource == null || !('program' in resource.data) || 'program' in d)
         && (resource == null || !('cohort' in resource.data) || 'cohort' in d)
         && (resource == null || !('leaders' in resource.data) || 'leaders' in d)
+        // 출석부에서 고른 반장·총무(uid)는 지우지 못해요(1.2.8 관리자 앱이 반을 저장하며 지우는 것 막기, 비우기는 '')
+        && (resource == null || !('leaders' in resource.data) || !('chiefUid' in resource.data.leaders)
+          || (d.leaders.chiefUid is string && d.leaders.treasurerUid is string))
         && (!('updatedAt' in d) || d.updatedAt is timestamp);
     }
 
@@ -48,19 +51,10 @@ service cloud.firestore {
         && request.resource.data.semester == (resource == null ? 1 : resource.data.semester + 1);
     }
 
-    // 이름 비교: 띄어쓰기를 모두 빼고 영문은 대문자로 (앱 normalizeName과 같게)
-    function bare(s) {
-      return s.replace('\\s+', '').upper();
-    }
-
     match /courses/{courseId} {
       allow read: if true;
       allow create, update: if isAdmin() && validCourse(request.resource.data);
       allow delete: if isAdmin();
-
-      function courseDoc() {
-        return get(/databases/$(database)/documents/courses/$(courseId)).data;
-      }
 
       // 이 폰(익명 uid)이 이 반 반장·총무로 인정됐는지
       function isLeader() {
@@ -68,22 +62,19 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/courses/$(courseId)/leaders/$(request.auth.uid));
       }
 
-      // 반장·총무 코드 (숫자 4자리). 관리자만 읽고 써요.
+      // 예전 반장·총무 코드 (1.2.9부터 안 써요). 관리자만 읽고 지울 수 있게 남겨 둬요.
       match /private/{docId} {
         allow read, write: if isAdmin();
       }
 
-      // 반장·총무 인정: 관리자가 적은 반장 또는 총무 이름과 같고(띄어쓰기 무시), 반 코드가 맞을 때만 만들 수 있어요.
-      // 관리자가 이름이나 코드를 바꾸면 앱이 이 문서들을 지워서 다시 넣게 해요. 새 학기 반에는 없어요.
+      // 반장·총무 인정 (문서 id = 그 폰의 익명 uid). 관리자가 출석부에서 고른 사람에게만 만들어 줘요.
+      // 1.2.8까지 코드로 스스로 만든 문서(name, code, at)도 그대로 인정돼요. 새 학기 반에는 없어요.
       match /leaders/{uid} {
         allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
-        allow create, update: if request.auth != null && request.auth.uid == uid
-          && request.resource.data.keys().hasOnly(['name', 'code', 'at'])
+        allow create, update: if isAdmin()
+          && request.resource.data.keys().hasOnly(['name', 'role', 'at'])
           && request.resource.data.name is string && request.resource.data.name.size() > 0
-          && request.resource.data.code is string && request.resource.data.code.size() == 4
-          && request.resource.data.code == get(/databases/$(database)/documents/courses/$(courseId)/private/codes).data.code
-          && (request.resource.data.name == bare(courseDoc().get('leaders', {}).get('chief', ''))
-            || request.resource.data.name == bare(courseDoc().get('leaders', {}).get('treasurer', '')));
+          && request.resource.data.role in ['chief', 'treasurer'];
         allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
       }
 

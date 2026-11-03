@@ -52,10 +52,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 
   bool get _dirty => widget.isNew || _draft != _baseline;
 
-  /// 반장·총무를 저장했을 때: 편집 중인 값과 저장된 값 모두에 반영 (반 저장 때 옛 이름으로 덮지 않게)
-  void _leadersSaved(String chief, String treasurer) => setState(() {
-    _draft = _draft.copyWith(chief: chief, treasurer: treasurer);
-    _baseline = _baseline.copyWith(chief: chief, treasurer: treasurer);
+  /// 반장·총무를 저장했을 때: 편집 중인 값과 저장된 값 모두에 반영 (반 저장 때 옛 사람으로 덮지 않게)
+  void _leadersSaved(Course Function(Course) apply) => setState(() {
+    _draft = apply(_draft);
+    _baseline = apply(_baseline);
   });
 
   void _update(Course next, {bool regenerate = false}) => setState(() {
@@ -227,7 +227,7 @@ class _BasicSection extends StatelessWidget {
   final int gen;
   final _OnChanged onChanged;
   final bool isNew;
-  final void Function(String chief, String treasurer) onLeadersSaved;
+  final void Function(Course Function(Course) apply) onLeadersSaved;
 
   @override
   Widget build(BuildContext context) {

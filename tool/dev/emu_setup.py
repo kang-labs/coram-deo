@@ -51,13 +51,12 @@ def main() -> None:
         if cid == "jedae2":
             doc = {**doc, "leaders": {"chief": "TestChief", "treasurer": ""}}
         put(f"courses/{cid}", doc)
-    put("courses/jedae2/private/codes", {"code": "4321"})
     try:
         call("POST", AUTH, {"email": "bible4217@gmail.com", "password": TEST_ADMIN_PIN, "emailVerified": True})
     except urllib.error.HTTPError as e:
         if e.code != 400:  # 400 = 이미 있는 계정 (에뮬레이터를 끄지 않고 다시 돌릴 때)
             raise
-    print("에뮬레이터 준비 끝: 반 7개, 제자대학2학기 반장 TestChief / 코드 4321, 시험 관리자 계정")
+    print("에뮬레이터 준비 끝: 반 7개, 제자대학2학기 반장 이름 TestChief(예전 방식, 관리자가 출석부에서 다시 골라야 함), 시험 관리자 계정")
 
 
 if __name__ == "__main__":

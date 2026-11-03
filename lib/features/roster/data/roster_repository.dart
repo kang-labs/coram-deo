@@ -100,20 +100,12 @@ bool nameMatches(String name, String query) {
 
 /// 출석부 순서: 반장 → 총무 → 나머지 이름 가나다순. 반장·총무 줄 이름 아래에 보일 역할 글도 같이.
 List<({Member member, String? role})> rosterOrder(List<Member> members, Course course) {
-  String? roleOf(Member m) {
-    final n = normalizeName(m.name);
-    if (n.isEmpty) return null;
-    if (n == normalizeName(course.chief)) return '반장';
-    if (n == normalizeName(course.treasurer)) return '총무';
-    return null;
-  }
-
   int rank(String? role) => switch (role) {
     '반장' => 0,
     '총무' => 1,
     _ => 2,
   };
-  final rows = [for (final m in members) (member: m, role: roleOf(m))];
+  final rows = [for (final m in members) (member: m, role: course.leaderRole(m.uid, m.name))];
   rows.sort((a, b) {
     final r = rank(a.role).compareTo(rank(b.role));
     return r != 0 ? r : a.member.name.compareTo(b.member.name);
@@ -121,7 +113,7 @@ List<({Member member, String? role})> rosterOrder(List<Member> members, Course c
   return rows;
 }
 
-/// 반 사람 기록 올리기·보기, 반장·총무 코드
+/// 반 사람 기록 올리기·보기, 반장·총무 지정
 class RosterRepository {
   RosterRepository(this._db);
 
@@ -204,23 +196,7 @@ class RosterRepository {
   Stream<bool> watchIsLeader(String cid, String uid) =>
       _course(cid).collection('leaders').doc(uid).snapshots().map((d) => d.exists);
 
-  /// 반장·총무 코드 넣기. 이름과 코드가 맞으면(서버 규칙이 확인) true.
-  Future<bool> claimLeader(String cid, String uid, String name, String code) async {
-    try {
-      await _course(cid)
-          .collection('leaders')
-          .doc(uid)
-          .set({'name': normalizeName(name), 'code': code, 'at': FieldValue.serverTimestamp()});
-      return true;
-    } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied') return false;
-      rethrow;
-    }
-  }
-
   // ── 관리자 ──
-
-  DocumentReference<Map<String, dynamic>> _codes(String cid) => _course(cid).collection('private').doc('codes');
 
   /// 출석부에서 사람 지우기. 이 이름(띄어쓰기·대소문자 무시)으로 올라온 문서를 모두 지워요.
   /// 앱을 다시 깔아 생긴 옛 문서도 같이 지워야 옛 기록이 대신 나타나지 않아요. 반장·총무 인정도 같이 풀어요.
@@ -229,16 +205,18 @@ class RosterRepository {
     final key = normalizeName(name);
     final docs = await _course(cid).collection('members').get(const GetOptions(source: Source.server));
     final batch = _db.batch();
-    var count = 0;
+    final gone = <String>{};
     for (final d in docs.docs) {
       final v = d.data()['name'];
       if (v is! String || normalizeName(v) != key) continue;
       batch.delete(d.reference);
       batch.delete(_course(cid).collection('leaders').doc(d.id));
-      count++;
+      gone.add(d.id);
     }
-    if (count > 0) await batch.commit();
-    return count;
+    if (gone.isEmpty) return 0;
+    await _passLeaders(batch, cid, gone);
+    await batch.commit();
+    return gone.length;
   }
 
   /// 관리자: 반 사람 전부를 한 번 읽어요(사용자 관리). 같은 이름은 [Member.older]에.
@@ -267,6 +245,8 @@ class RosterRepository {
       batch.delete(_course(cid).collection('members').doc(o.uid));
       batch.delete(_course(cid).collection('leaders').doc(o.uid));
     }
+    // 앱을 다시 깐 반장·총무면 역할을 새 폰([to])으로 넘겨요
+    await _passLeaders(batch, cid, {for (final o in from) o.uid}, to: to);
     await batch.commit();
   }
 
@@ -328,6 +308,9 @@ class RosterRepository {
         ..delete(_course(from.id).collection('members').doc(d.uid))
         ..delete(_course(from.id).collection('leaders').doc(d.uid));
     }
+    await _passLeaders(batch, from.id, {
+      for (final d in [m, ...m.older]) d.uid,
+    });
     await batch.commit();
   }
 
@@ -358,29 +341,57 @@ class RosterRepository {
     return count;
   }
 
-  /// 반장·총무 코드 (관리자만 읽을 수 있어요). 없으면 ''.
-  Future<String> readCode(String cid) async {
-    final d = await _codes(cid).get();
-    final v = d.data()?['code'];
-    return v is String ? v : '';
+  /// 출석부에서 빠지는 폰들([gone]) 중에 반장·총무로 고른 사람이 있으면, 반 문서의 그 역할을 [to]에게 넘기거나
+  /// ([to]가 없으면) 비워요. 표시(반 목록·출석부 '반장')와 권한이 어긋나지 않게 [batch]에 같이 넣어요.
+  /// 이름+코드로 정하던 예전 반(uid 없음)은 그대로 둬요(그 반은 관리자가 다시 고르면 바뀌어요).
+  Future<void> _passLeaders(WriteBatch batch, String cid, Set<String> gone, {Member? to}) async {
+    final doc = await _course(cid).get(const GetOptions(source: Source.server));
+    final data = doc.data();
+    if (data == null) return;
+    final c = Course.fromMap(cid, data);
+    final update = <String, Object>{};
+    for (final (role, uid) in [('chief', c.chiefUid), ('treasurer', c.treasurerUid)]) {
+      if (uid.isEmpty || !gone.contains(uid)) continue;
+      update['leaders.$role'] = to?.name ?? '';
+      update['leaders.${role}Uid'] = to?.uid ?? '';
+      if (to != null) {
+        batch.set(_course(cid).collection('leaders').doc(to.uid), {
+          'name': normalizeName(to.name),
+          'role': role,
+          'at': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+    if (update.isEmpty) return;
+    batch.update(_course(cid), {...update, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
-  /// 반장·총무 이름과 코드 저장. 바뀌었으면 지금까지 인정된 반장·총무를 모두 풀어요(새 이름·코드로 다시 넣어야 해요).
-  Future<void> saveLeaders(Course c, {required String chief, required String treasurer, required String code}) async {
-    final oldCode = await readCode(c.id);
-    final changed = oldCode != code || c.chief != chief || c.treasurer != treasurer;
+  /// 반장·총무 정하기: 출석부에서 고른 사람([chief]·[treasurer], 없으면 null)에게 권한(`leaders/{uid}`)을 주고,
+  /// 그 밖의 인정은 모두 풀어요. 같은 사람을 다시 고르면(예전에 코드로 인정된 사람 포함) 권한이 그대로 이어져요.
+  Future<void> saveLeaders(Course c, {Member? chief, Member? treasurer}) async {
+    // 오프라인 캐시 일부만 지우면 권한이 남으니 서버에서 읽어요
+    final claims = await _course(c.id).collection('leaders').get(const GetOptions(source: Source.server));
+    final keep = {?chief?.uid, ?treasurer?.uid};
     final batch = _db.batch();
     batch.update(_course(c.id), {
-      'leaders': {'chief': chief, 'treasurer': treasurer},
+      'leaders': {
+        'chief': chief?.name ?? '',
+        'treasurer': treasurer?.name ?? '',
+        'chiefUid': chief?.uid ?? '',
+        'treasurerUid': treasurer?.uid ?? '',
+      },
       'updatedAt': FieldValue.serverTimestamp(),
     });
-    batch.set(_codes(c.id), {'code': code});
-    if (changed) {
-      // 오프라인 캐시 일부만 지우면 권한이 남으니 서버에서 읽어요
-      final claims = await _course(c.id).collection('leaders').get(const GetOptions(source: Source.server));
-      for (final d in claims.docs) {
-        batch.delete(d.reference);
-      }
+    for (final d in claims.docs) {
+      if (!keep.contains(d.id)) batch.delete(d.reference);
+    }
+    for (final (m, role) in [(chief, 'chief'), (treasurer, 'treasurer')]) {
+      if (m == null) continue;
+      batch.set(_course(c.id).collection('leaders').doc(m.uid), {
+        'name': normalizeName(m.name),
+        'role': role,
+        'at': FieldValue.serverTimestamp(),
+      });
     }
     await batch.commit();
   }

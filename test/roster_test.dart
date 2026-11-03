@@ -4,6 +4,7 @@ import 'package:coram_deo/app/theme.dart';
 import 'package:coram_deo/core/device_kind.dart';
 import 'package:coram_deo/core/local_storage.dart';
 import 'package:coram_deo/core/models/course.dart';
+import 'package:coram_deo/features/admin/ui/leaders_sheet.dart';
 import 'package:coram_deo/features/course/data/course_repository.dart';
 import 'package:coram_deo/features/course/logic/course_providers.dart';
 import 'package:coram_deo/features/record/data/course_record.dart';
@@ -29,22 +30,35 @@ Member _m(String uid, String name, int minute, [CourseRecord record = CourseReco
     Member(uid: uid, name: name, record: record, updatedAt: DateTime(2026, 10, 1, 0, minute));
 
 void main() {
-  test('반장·총무 이름: 서버 형식 읽기·쓰기, 띄어쓰기 무시, 새 학기 사본은 비움', () {
+  test('반장·총무(예전 반, 이름만): 서버 형식 읽기·쓰기, 띄어쓰기 무시, 새 학기 사본은 비움', () {
     final c = Course.fromMap('a', {
       'name': '양육A반',
       'leaders': {'chief': '홍 길동A', 'treasurer': '김영희'},
     });
-    expect((c.chief, c.treasurer), ('홍 길동A', '김영희'));
-    expect(c.isLeaderName('홍길동A'), isTrue);
-    expect(c.isLeaderName(' 김 영희 '), isTrue);
-    expect(c.isLeaderName('홍길동'), isFalse);
-    expect(c.isLeaderName('홍길동a'), isTrue); // 영문 대소문자 무시
+    expect((c.chief, c.treasurer, c.chiefUid, c.treasurerUid), ('홍 길동A', '김영희', '', ''));
+    expect(c.leaderRole('u1', '홍길동A'), '반장');
+    expect(c.leaderRole('u1', ' 김 영희 '), '총무');
+    expect(c.leaderRole('u1', '홍길동'), isNull);
+    expect(c.leaderRole('u1', '홍길동a'), '반장'); // 영문 대소문자 무시
     expect(normalizeName('홍 길동a	'), '홍길동A');
-    expect(c.isLeaderName(''), isFalse);
+    expect(c.leaderRole('u1', ''), isNull);
     expect(Course.fromMap('a', c.toMap()), c);
     expect(Course.fromMap('b', {'name': 'x', 'leaders': 'bad'}).chief, '');
     final next = nextSemesterCopy(c, id: 'n', semester: 1);
     expect((next.chief, next.treasurer), ('', ''));
+  });
+
+  test('반장·총무(출석부에서 고른 반): uid로만 보고, 같은 이름의 다른 폰은 아님', () {
+    final c = Course.fromMap('a', {
+      'name': '양육A반',
+      'leaders': {'chief': '홍길동A', 'treasurer': '', 'chiefUid': 'u1', 'treasurerUid': ''},
+    });
+    expect(c.leaderRole('u1', '아무이름'), '반장');
+    expect(c.leaderRole('u2', '홍길동A'), isNull); // 앱을 다시 깐 폰·동명이인
+    expect(c.leaderRole('', '홍길동A'), isNull);
+    expect(Course.fromMap('a', c.toMap()), c);
+    final next = nextSemesterCopy(c, id: 'n', semester: 1);
+    expect((next.chiefUid, next.treasurerUid), ('', ''));
   });
 
   test('반 사람: 같은 이름은 최근 것만, 이름 가나다순', () {
@@ -60,6 +74,12 @@ void main() {
     final rows = rosterOrder([_m('1', '이순신', 1), _m('2', '김영희', 2), _m('3', '강감찬', 3), _m('4', '홍길동A', 4)], course);
     expect([for (final r in rows) r.member.name], ['홍길동A', '김영희', '강감찬', '이순신']);
     expect([for (final r in rows) r.role], ['반장', '총무', null, null]);
+  });
+
+  test('출석부 순서: 출석부에서 고른 반은 uid로 역할 표시', () {
+    final course = fakeCourse().copyWith(chief: '강감찬', chiefUid: '3', treasurerUid: '1', treasurer: '이순신');
+    final rows = rosterOrder([_m('1', '이순신', 1), _m('2', '강감찬', 2), _m('3', '김유신', 3)], course);
+    expect([for (final r in rows) (r.member.uid, r.role)], [('3', '반장'), ('1', '총무'), ('2', null)]);
   });
 
   testWidgets('처음 실행: 이름을 적어야 반 고르기로 넘어감', (tester) async {
@@ -345,28 +365,27 @@ void main() {
     expect(a.fillFrom(CourseRecord.empty), a);
   });
 
-  test('반장·총무 코드 물을 때: 이름이 지정됐고, 아직 인정 안 됐을 때만', () async {
-    Future<bool> needed({required String name, required bool leader}) async {
-      SharedPreferences.setMockInitialValues({'name': name, 'courseId': 'jedae2'});
-      final prefs = await SharedPreferences.getInstance();
-      final c = ProviderContainer(
+  testWidgets('반장·총무 고르기: 출석부 사람 목록, 예전 반은 같은 이름으로 미리 고름, 출석부에 없으면 알림', (tester) async {
+    final course = fakeCourse().copyWith(chief: '홍 길동a', treasurer: '박철수');
+    await tester.pumpWidget(
+      ProviderScope(
         overrides: [
-          sharedPreferencesProvider.overrideWithValue(prefs),
-          currentCourseProvider.overrideWith(
-            (ref) => Stream.value(fakeCourse().copyWith(chief: '홍길동A', treasurer: '김영희')),
-          ),
-          isLeaderProvider.overrideWith((ref) => Stream.value(leader)),
+          adminClassMembersProvider(
+            course.id,
+          ).overrideWith((ref) => Stream.value([_m('1', '이순신', 1), _m('2', '홍길동A', 2)])),
         ],
-      );
-      addTearDown(c.dispose);
-      c.listen(leaderCodeNeededProvider, (_, _) {});
-      await c.read(currentCourseProvider.future);
-      await c.read(isLeaderProvider.future);
-      return c.read(leaderCodeNeededProvider);
-    }
-
-    expect(await needed(name: '홍 길동A', leader: false), isTrue);
-    expect(await needed(name: '홍길동A', leader: true), isFalse);
-    expect(await needed(name: '이순신', leader: false), isFalse);
+        child: MaterialApp(
+          theme: AppTheme.of(AppThemeId.fallback),
+          home: Scaffold(body: LeadersForm(course: course)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('홍길동A'), findsOneWidget); // 반장 칸에 미리 골라짐
+    expect(find.text('없음'), findsOneWidget); // 총무는 출석부에 없어서 비움
+    expect(find.textContaining('총무 박철수 님은 출석부에 없어서'), findsOneWidget);
+    await tester.tap(find.text('없음'));
+    await tester.pumpAndSettle();
+    expect(find.text('이순신'), findsWidgets); // 펼친 목록에 출석부 사람
   });
 }

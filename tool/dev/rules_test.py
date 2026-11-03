@@ -124,12 +124,19 @@ def main() -> None:
     check("익명(반장 아님): 반 사람 목록 읽기", list_("courses/c1/members", u2), False)
     check("익명: 코드 읽기", get("courses/c1/private/codes", u1), False)
 
-    check("반장 이름 소문자 그대로(앱은 대문자로 보냄)", put("courses/c1/leaders/u2", {"name": "홍길동a", "code": "1234"}, u2, "at"), False)
-    check("반장 이름(띄어쓰기·대소문자 맞춤)+맞는 코드", put("courses/c1/leaders/u2", {"name": "홍길동A", "code": "1234"}, u2, "at"), True)
-    check("반장 이름+틀린 코드", put("courses/c1/leaders/u3", {"name": "홍길동A", "code": "0000"}, u3, "at"), False)
-    check("다른 이름+맞는 코드", put("courses/c1/leaders/u3", {"name": "박철수", "code": "1234"}, u3, "at"), False)
-    check("총무 이름+맞는 코드", put("courses/c1/leaders/u3", {"name": "김영희", "code": "1234"}, u3, "at"), True)
-    check("남의 uid로 반장 만들기", put("courses/c1/leaders/zz", {"name": "홍길동A", "code": "1234"}, u1, "at"), False)
+    lead = {"name": "홍길동A", "role": "chief"}
+    check("익명: 스스로 반장 되기", put("courses/c1/leaders/u2", lead, u2, "at"), False)
+    check("익명: 예전 방식(이름+코드)으로 반장 되기", put("courses/c1/leaders/u2", {"name": "홍길동A", "code": "1234"}, u2, "at"), False)
+    check("관리자: 반장 고르기", put("courses/c1/leaders/u2", lead, admin, "at"), True)
+    check("관리자: 총무 고르기", put("courses/c1/leaders/u3", {"name": "김영희", "role": "treasurer"}, admin, "at"), True)
+    check("관리자: 모르는 역할", put("courses/c1/leaders/u4", {"name": "박철수", "role": "boss"}, admin, "at"), False)
+    check("관리자: 모르는 필드", put("courses/c1/leaders/u4", {**lead, "code": "1234"}, admin, "at"), False)
+    check("관리자: 빈 이름", put("courses/c1/leaders/u4", {"name": "", "role": "chief"}, admin, "at"), False)
+    check("반장: 내 인정 읽기", get("courses/c1/leaders/u2", u2), True)
+    check("익명: 남의 인정 읽기", get("courses/c1/leaders/u2", u1), False)
+    # 1.2.8까지 코드로 만든 인정 문서도 그대로 통해요
+    assert put("courses/c1/leaders/u5", {"name": "홍길동A", "code": "1234"}, OWNER, "at") == 200
+    check("예전 방식 반장: 반 사람 목록 읽기", list_("courses/c1/members", token("u5")), True)
     check("반장: 반 사람 목록 읽기", list_("courses/c1/members", u2), True)
     check("반장: 코드 읽기", get("courses/c1/private/codes", u2), False)
     check("반장: 남의 기록 쓰기", put("courses/c1/members/u1", rec, u2, "updatedAt"), False)
@@ -170,6 +177,11 @@ def main() -> None:
     check("옮길 폰: 옮긴 뒤 상자 지우기", req("DELETE", f"{BASE}/courses/c1/moves/u1", u1), True)
     check("이메일 확인 안 된 관리자 흉내: 코드 읽기", get("courses/c1/private/codes", fake_admin), False)
     check("관리자: 반 저장(반장 정보 유지)", put("courses/c1", COURSE, admin, "updatedAt"), True)
+    picked = {**COURSE, "leaders": {"chief": "홍길동A", "treasurer": "", "chiefUid": "u2", "treasurerUid": ""}}
+    check("관리자: 출석부에서 고른 반장 저장", put("courses/c1", picked, admin, "updatedAt"), True)
+    check("관리자(1.2.8 앱): 고른 반장 uid 지우며 저장", put("courses/c1", COURSE, admin, "updatedAt"), False)
+    cleared = {**COURSE, "leaders": {"chief": "", "treasurer": "", "chiefUid": "", "treasurerUid": ""}}
+    check("관리자: 반장 비우기", put("courses/c1", cleared, admin, "updatedAt"), True)
     no_leaders = {k: v for k, v in COURSE.items() if k != "leaders"}
     check("관리자(예전 앱): 반장 정보 지우며 저장", put("courses/c1", no_leaders, admin, "updatedAt"), False)
     check("익명: 반 저장", put("courses/c1", COURSE, u1, "updatedAt"), False)

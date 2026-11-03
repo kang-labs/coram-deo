@@ -164,3 +164,15 @@
 - 테마 '다크'(검정·회색, OLED 배터리) 추가. '미드나잇'은 네이비 다크.
 - Play 앱 서명 키 SHA-1·SHA-256 Firebase 등록(이제 4개).
 - 기기 종류 (1.2.6, 2026-10-26, 시험 운영 기간만): `lib/core/device_kind.dart` `collectDeviceKind`가 true면 members에 `device`(android/iphone/web) 같이 올림(sent payload에 넣어 새 버전은 한 번 다시 올림), 사용자 관리 줄 앞에 표시. 정식 출시 때 false + privacy.html '기기 종류' 줄·삭제 목록 '(기기 종류 포함)' 지우기. 규칙은 device 없어도 받음.
+
+## 반장·총무를 출석부에서 고르기 (1.2.9, 2026-11-03)
+
+- 이름+4자리 코드 방식 없앰(위 2026-10-25 절의 코드·`leaderAsked`·설정 '코드 넣기'·`leader_code.dart`). 관리자 '반장·총무 정하기'(반 메뉴 창·반 편집 기본 정보 카드, 같은 `LeadersForm`) = 그 반 출석부(`adminClassMembersProvider`) 사람 중 반장·총무 드롭다운, '없음' 가능, 같은 사람 두 역할 불가.
+- 저장 `saveLeaders(c, chief:, treasurer:)` 한 batch: 반 문서 `leaders {chief, treasurer, chiefUid, treasurerUid}`(이름은 표시용), `leaders/{uid}` {name, role chief|treasurer, at} set, 고르지 않은 leaders 문서는 지움(서버에서 읽음). 같은 사람을 다시 고르면 권한 그대로.
+- 규칙: `leaders/{uid}` 만들기·고치기는 관리자만(keys name·role·at). 1.2.8까지 스스로 만든 {name, code, at} 문서는 그대로 인정(사용자 결정 '기존 반장 유지'). `private/codes`는 안 씀(관리자만 읽기 규칙은 남김).
+- 폰: `Course.leaderRole(uid, name)` — uid가 있는 반은 uid로만, 예전 반(uid 없음)은 이름으로. `_leaderNamedProvider`(bool)가 참일 때만 `leaders/{uid}` 구독. `rosterOrder` 역할 글도 같은 함수.
+- 예전 반에 이름만 있고 코드를 안 넣은 사람은 관리자가 다시 골라야 함. 고르는 창이 같은 이름인 사람을 미리 고르고, 출석부에 없으면 '… 님은 출석부에 없어서 다시 골라야 해요'.
+- 1.2.8 앱 호환: 이름으로 걸러 leaders 문서를 보므로 관리자가 고른 사람은 옛 앱에서도 출석부가 보임(코드 창은 안 뜸). 옛 관리자 앱으로 반을 저장하면 uid가 빠지지만 이름 판단으로 돌아가 권한은 유지.
+- 출석부에서 빠질 때 `_passLeaders`(같은 batch, 반 문서를 서버에서 읽음): 반 옮기기·사람 지우기는 그 사람 역할을 반 문서에서 비우고, 데이터 가져와 주기(`giveBack`, 앱을 다시 깐 사람)는 역할을 새 폰에 넘기고 `leaders/{새 uid}`를 만듦. uid 없는 예전 반은 그대로. `deleteStale`(2년)은 안 건드림.
+- 규칙: 반 문서에 `leaders.chiefUid`가 있으면 저장할 때 chiefUid·treasurerUid가 꼭 있어야 함 → 1.2.8 관리자 앱의 반 저장·반장 저장은 거절(지정이 지워지지 않게). 관리자 폰은 1.2.9로 올려야 반 편집 가능.
+- 배포 순서: 규칙 먼저 → 관리자 폰 1.2.9 → 반장·총무 고르기. 규칙 시험 66/66.
