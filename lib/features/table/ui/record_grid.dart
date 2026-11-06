@@ -350,6 +350,7 @@ class RecordCellView extends StatelessWidget {
     required this.type,
     required this.noteTitle,
     this.metrics = GridMetrics.regular,
+    this.started = false,
   });
 
   /// 그 칸의 기록에서 바로 만들기
@@ -360,11 +361,13 @@ class RecordCellView extends StatelessWidget {
     required PartDef part,
     required String noteTitle,
     GridMetrics metrics = GridMetrics.regular,
+    bool started = false,
   }) => RecordCellView(
     entry: record.entry(week, item.id, part.id),
     type: part.type,
     noteTitle: noteTitle,
     metrics: metrics,
+    started: started,
   );
 
   final ({Object? value, String? note}) entry;
@@ -374,13 +377,22 @@ class RecordCellView extends StatelessWidget {
   final String noteTitle;
   final GridMetrics metrics;
 
+  /// 그 주가 시작됐는지 (요일 칸을 하나도 안 했으면 0으로 채워요, [weekCountsZero])
+  final bool started;
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     if (type.isDaily) {
+      final text = dailyCellText(entry.value, started: started);
       return Text(
-        dailyCellText(entry.value),
-        style: TextStyle(fontSize: metrics.dailyFont, fontWeight: FontWeight.w800, color: p.ink),
+        text,
+        // 0은 한 날 수와 구별되게 흐리게
+        style: TextStyle(
+          fontSize: metrics.dailyFont,
+          fontWeight: FontWeight.w800,
+          color: text == '0' ? p.inkSoft : p.ink,
+        ),
       );
     }
     final mark = MarkValue.fromCode(entry.value);
@@ -404,16 +416,18 @@ class ProviderRecordCell extends ConsumerWidget {
     required this.item,
     required this.part,
     this.metrics = GridMetrics.regular,
+    this.started = false,
   });
 
   final int week;
   final ItemDef item;
   final PartDef part;
   final GridMetrics metrics;
+  final bool started;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entry = ref.watch(courseRecordProvider.select((r) => r.entry(week, item.id, part.id)));
-    return RecordCellView(entry: entry, type: part.type, noteTitle: '$week주 사유', metrics: metrics);
+    return RecordCellView(entry: entry, type: part.type, noteTitle: '$week주 사유', metrics: metrics, started: started);
   }
 }

@@ -7,6 +7,7 @@ import '../../../app/widgets.dart';
 import '../../../core/dates.dart';
 import '../../../core/models/course.dart';
 import '../../home/logic/home_providers.dart';
+import '../../record/logic/part_display.dart';
 import '../../record/logic/record_providers.dart';
 import '../../week/logic/week_providers.dart';
 import '../logic/table_view_provider.dart';
@@ -103,6 +104,8 @@ class WeekRecordGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final todayIndex = ref.watch(todayWeekIndexProvider);
+    final today = ref.watch(todayProvider);
+    final started = [for (final w in course.weeks) weekCountsZero(w, today)];
     final readOnly = ref.watch(recordReadOnlyProvider);
     return RecordGrid(
       items: course.items,
@@ -124,7 +127,8 @@ class WeekRecordGrid extends ConsumerWidget {
                   },
           ),
       ],
-      cellBuilder: (row, item, part, m) => ProviderRecordCell(week: row + 1, item: item, part: part, metrics: m),
+      cellBuilder: (row, item, part, m) =>
+          ProviderRecordCell(week: row + 1, item: item, part: part, metrics: m, started: started[row]),
     );
   }
 

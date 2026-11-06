@@ -5,6 +5,7 @@ import '../../../app/layout.dart';
 import '../../../app/widgets.dart';
 import '../../../core/dates.dart';
 import '../../../core/models/course.dart';
+import '../../record/logic/part_display.dart';
 import '../../table/ui/record_grid.dart';
 import '../../table/ui/table_image_export.dart';
 import '../../week/logic/week_math.dart';
@@ -41,19 +42,14 @@ class _RosterViewState extends ConsumerState<RosterView> {
   RecordGrid _grid(List<Member> unsorted, {required GridLayoutMode mode, GridDensity density = GridDensity.regular}) {
     final rows = rosterOrder(unsorted, _c);
     final members = [for (final r in rows) r.member];
+    final started = _c.weeks.isNotEmpty && weekCountsZero(_c.weeks[_week], ref.read(todayProvider));
     return RecordGrid(
       items: _c.items,
       headerLabel: '이름',
       firstColumnWidth: 84,
       mode: mode,
       density: density,
-      rows: [
-        for (final r in rows)
-          RecordGridRow(
-            title: r.member.name,
-            subtitle: r.role,
-          ),
-      ],
+      rows: [for (final r in rows) RecordGridRow(title: r.member.name, subtitle: r.role)],
       cellBuilder: (i, item, part, metrics) => RecordCellView.fromRecord(
         members[i].record,
         week: _week + 1,
@@ -61,6 +57,7 @@ class _RosterViewState extends ConsumerState<RosterView> {
         part: part,
         noteTitle: '${members[i].name} 사유',
         metrics: metrics,
+        started: started,
       ),
     );
   }
