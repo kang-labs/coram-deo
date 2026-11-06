@@ -115,6 +115,7 @@ Course nextSemesterCopy(Course c, {required String id, required int semester}) {
     treasurer: '',
     chiefUid: '',
     treasurerUid: '',
+    staff: const [],
     cohort: c.cohort > 0 ? c.cohort + 1 : 0,
     semester: semester,
     visible: false,

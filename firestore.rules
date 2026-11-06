@@ -67,14 +67,14 @@ service cloud.firestore {
         allow read, write: if isAdmin();
       }
 
-      // 반장·총무 인정 (문서 id = 그 폰의 익명 uid). 관리자가 출석부에서 고른 사람에게만 만들어 줘요.
+      // 반장·총무·양육국 인정 (문서 id = 그 폰의 익명 uid). 관리자가 출석부에서 고른 사람에게만 만들어 줘요. 셋 다 출석부 보기만.
       // 1.2.8까지 코드로 스스로 만든 문서(name, code, at)도 그대로 인정돼요. 새 학기 반에는 없어요.
       match /leaders/{uid} {
         allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
         allow create, update: if isAdmin()
           && request.resource.data.keys().hasOnly(['name', 'role', 'at'])
           && request.resource.data.name is string && request.resource.data.name.size() > 0
-          && request.resource.data.role in ['chief', 'treasurer'];
+          && request.resource.data.role in ['chief', 'treasurer', 'staff'];
         allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
       }
 

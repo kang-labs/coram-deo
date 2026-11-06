@@ -244,7 +244,7 @@ class _CourseAdminList extends ConsumerWidget {
   String _label(_CourseAction a, Course c) => switch (a) {
     _CourseAction.edit => '편집',
     _CourseAction.roster => '출석부 보기',
-    _CourseAction.leaders => '반장·총무 정하기',
+    _CourseAction.leaders => '반장·총무·양육국 정하기',
     _CourseAction.copy => '다음 기수로 복사',
     _CourseAction.toggleVisible => c.visible ? '숨기기' : '보이기',
     _CourseAction.delete => '삭제',
@@ -398,11 +398,12 @@ class _AdminCourseCard extends StatelessWidget {
                     ].join(' · '),
                     style: const TextStyle(fontSize: 13),
                   ),
-                  if (c.chief.isNotEmpty || c.treasurer.isNotEmpty)
+                  if (c.chief.isNotEmpty || c.treasurer.isNotEmpty || c.staff.isNotEmpty)
                     MutedText(
                       [
                         if (c.chief.isNotEmpty) '반장 ${c.chief}',
                         if (c.treasurer.isNotEmpty) '총무 ${c.treasurer}',
+                        if (c.staff.isNotEmpty) '양육국 ${c.staff.map((s) => s.name).join(', ')}',
                       ].join(' · '),
                       style: const TextStyle(fontSize: 13),
                     ),

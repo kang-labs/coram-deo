@@ -10,7 +10,7 @@ import '../../../core/models/course.dart';
 import '../../roster/data/roster_repository.dart';
 import '../../roster/logic/roster_providers.dart';
 
-/// 관리자: 반마다 출석부에 있는 사람 중에서 반장·총무 고르기
+/// 관리자: 반마다 출석부에 있는 사람 중에서 반장·총무·양육국 고르기
 Future<void> showLeadersSheet(BuildContext context, Course course) => showAppSheet<void>(
   context,
   scrollable: true,
@@ -18,7 +18,7 @@ Future<void> showLeadersSheet(BuildContext context, Course course) => showAppShe
     shrinkWrap: true,
     padding: const EdgeInsets.fromLTRB(AppLayout.sidePadding, 0, AppLayout.sidePadding, 16),
     children: [
-      CardHeader(icon: Icons.badge_rounded, title: '${course.fullTitle} 반장·총무'),
+      CardHeader(icon: Icons.badge_rounded, title: '${course.fullTitle} 반장·총무·양육국'),
       const SizedBox(height: 8),
       LeadersForm(course: course, onSaved: (_) => Navigator.pop(sheet)),
     ],
@@ -34,8 +34,9 @@ enum _Role {
   final String label;
 }
 
-/// 반장·총무 고르기와 저장 (반 메뉴 창, 반 편집 기본 정보 탭에서 같이 써요).
-/// 저장은 바로 서버에 해요(반 편집의 '저장'과 따로). [onSaved]는 저장한 반장·총무를 반 정보에 넣는 함수를 줘요.
+/// 반장·총무(한 명씩)·양육국(여럿) 고르기와 저장 (반 메뉴 창, 반 편집 기본 정보 탭에서 같이 써요).
+/// 셋 다 출석부를 보기만 해요. 저장은 바로 서버에 해요(반 편집의 '저장'과 따로).
+/// [onSaved]는 저장한 사람들을 반 정보에 넣는 함수를 줘요.
 class LeadersForm extends ConsumerStatefulWidget {
   const LeadersForm({super.key, required this.course, this.onSaved});
 
@@ -49,6 +50,9 @@ class LeadersForm extends ConsumerStatefulWidget {
 class _LeadersFormState extends ConsumerState<LeadersForm> {
   /// 고른 사람 uid (''이면 없음). 출석부를 받기 전에는 null(처음 값을 아직 안 정함).
   Map<_Role, String>? _picked;
+
+  /// 고른 양육국 uid들 (출석부를 받기 전에는 null)
+  Set<String>? _staff;
   bool _saving = false;
 
   /// 지금 정해진 사람의 uid. 예전(이름+코드) 반은 출석부에서 같은 이름인 사람으로 찾아요.
@@ -81,9 +85,16 @@ class _LeadersFormState extends ConsumerState<LeadersForm> {
       await showInfoDialog(context, body: '반장과 총무는 다른 사람으로 골라 주세요.');
       return;
     }
+    // 반장·총무로 고른 사람은 양육국에서 빼요(역할은 하나씩)
+    final staff = [
+      for (final m in members)
+        if (_staff!.contains(m.uid) && m.uid != chief?.uid && m.uid != treasurer?.uid) m,
+    ];
     setState(() => _saving = true);
     try {
-      await ref.read(adminRosterRepositoryProvider).saveLeaders(widget.course, chief: chief, treasurer: treasurer);
+      await ref
+          .read(adminRosterRepositoryProvider)
+          .saveLeaders(widget.course, chief: chief, treasurer: treasurer, staff: staff);
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       widget.onSaved?.call(
@@ -92,6 +103,7 @@ class _LeadersFormState extends ConsumerState<LeadersForm> {
           treasurer: treasurer?.name ?? '',
           chiefUid: chief?.uid ?? '',
           treasurerUid: treasurer?.uid ?? '',
+          staff: [for (final m in staff) StaffRef(uid: m.uid, name: m.name)],
         ),
       );
       messenger.showSnackBar(const SnackBar(content: Text('저장했어요. 그 사람이 앱을 열면 출석부 탭이 생겨요.')));
@@ -120,6 +132,8 @@ class _LeadersFormState extends ConsumerState<LeadersForm> {
     for (final r in _Role.values) {
       if (picked[r]!.isNotEmpty && !members.any((m) => m.uid == picked[r])) picked[r] = '';
     }
+    final staff = _staff ??= {for (final s in widget.course.staff) s.uid};
+    staff.retainWhere((uid) => members.any((m) => m.uid == uid));
     final c = widget.course;
     final missing = [
       for (final r in _Role.values)
@@ -132,7 +146,7 @@ class _LeadersFormState extends ConsumerState<LeadersForm> {
         MutedText(
           members.isEmpty
               ? '아직 이 반 출석부에 올라온 사람이 없어요. 반 사람들이 앱에서 이 반을 고르면 여기에 나와요.'
-              : '출석부에 있는 사람 중에서 골라 주세요. 고른 사람 폰에 출석부 탭이 생겨요.\n'
+              : '출석부에 있는 사람 중에서 골라 주세요. 고른 사람 폰에 출석부 탭이 생겨요(보기만 해요).\n'
                     '그 사람이 앱을 지우고 다시 깔았다면 출석부에 다시 올라온 이름으로 다시 골라 주세요.',
           style: const TextStyle(fontSize: 13, height: 1.5),
         ),
@@ -159,8 +173,27 @@ class _LeadersFormState extends ConsumerState<LeadersForm> {
             onChanged: _saving ? null : (v) => setState(() => picked[r] = v ?? ''),
           ),
         ],
+        if (members.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const MutedText('양육국 (여러 명 고를 수 있어요)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in members)
+                // 반장·총무로 고른 사람은 양육국으로 고를 수 없어요
+                if (m.uid != picked[_Role.chief] && m.uid != picked[_Role.treasurer])
+                  FilterChip(
+                    label: Text(m.name),
+                    selected: staff.contains(m.uid),
+                    onSelected: _saving ? null : (on) => setState(() => on ? staff.add(m.uid) : staff.remove(m.uid)),
+                  ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
-        FilledButton(onPressed: _saving ? null : () => _save(members), child: const Text('반장·총무 저장')),
+        FilledButton(onPressed: _saving ? null : () => _save(members), child: const Text('저장')),
       ],
     );
   }

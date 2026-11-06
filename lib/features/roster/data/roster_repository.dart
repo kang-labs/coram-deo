@@ -341,57 +341,73 @@ class RosterRepository {
     return count;
   }
 
-  /// 출석부에서 빠지는 폰들([gone]) 중에 반장·총무로 고른 사람이 있으면, 반 문서의 그 역할을 [to]에게 넘기거나
-  /// ([to]가 없으면) 비워요. 표시(반 목록·출석부 '반장')와 권한이 어긋나지 않게 [batch]에 같이 넣어요.
+  /// 인정 문서 하나 (`leaders/{uid}`, role = chief·treasurer·staff)
+  void _grant(WriteBatch batch, String cid, String uid, String name, String role) => batch.set(
+    _course(cid).collection('leaders').doc(uid),
+    {'name': normalizeName(name), 'role': role, 'at': FieldValue.serverTimestamp()},
+  );
+
+  /// 반 문서 `leaders` 값
+  static Map<String, Object> _leadersMap(StaffRef? chief, StaffRef? treasurer, List<StaffRef> staff) => {
+    'chief': chief?.name ?? '',
+    'treasurer': treasurer?.name ?? '',
+    'chiefUid': chief?.uid ?? '',
+    'treasurerUid': treasurer?.uid ?? '',
+    'staff': [for (final s in staff) s.toMap()],
+  };
+
+  /// 출석부에서 빠지는 폰들([gone]) 중에 반장·총무·양육국으로 고른 사람이 있으면, 반 문서의 그 역할을 [to]에게 넘기거나
+  /// ([to]가 없으면) 비워요. 표시(반 목록·출석부 역할 글)와 권한이 어긋나지 않게 [batch]에 같이 넣어요.
   /// 이름+코드로 정하던 예전 반(uid 없음)은 그대로 둬요(그 반은 관리자가 다시 고르면 바뀌어요).
   Future<void> _passLeaders(WriteBatch batch, String cid, Set<String> gone, {Member? to}) async {
     final doc = await _course(cid).get(const GetOptions(source: Source.server));
     final data = doc.data();
     if (data == null) return;
     final c = Course.fromMap(cid, data);
-    final update = <String, Object>{};
-    for (final (role, uid) in [('chief', c.chiefUid), ('treasurer', c.treasurerUid)]) {
-      if (uid.isEmpty || !gone.contains(uid)) continue;
-      update['leaders.$role'] = to?.name ?? '';
-      update['leaders.${role}Uid'] = to?.uid ?? '';
-      if (to != null) {
-        batch.set(_course(cid).collection('leaders').doc(to.uid), {
-          'name': normalizeName(to.name),
-          'role': role,
-          'at': FieldValue.serverTimestamp(),
-        });
-      }
+    final next = to == null ? null : StaffRef(uid: to.uid, name: to.name);
+    StaffRef? pass(String uid, String name) =>
+        uid.isEmpty ? null : (gone.contains(uid) ? next : StaffRef(uid: uid, name: name));
+    final chief = pass(c.chiefUid, c.chief), treasurer = pass(c.treasurerUid, c.treasurer);
+    final staff = <StaffRef>[
+      for (final s in c.staff)
+        if (pass(s.uid, s.name) case final r? when r.uid != chief?.uid && r.uid != treasurer?.uid) r,
+    ];
+    // 같은 사람이 두 번 들어가지 않게 (옛 폰 둘을 한 폰으로 합칠 때)
+    final seen = <String>{};
+    staff.retainWhere((s) => seen.add(s.uid));
+    final changed =
+        chief != (c.chiefUid.isEmpty ? null : StaffRef(uid: c.chiefUid, name: c.chief)) ||
+        treasurer != (c.treasurerUid.isEmpty ? null : StaffRef(uid: c.treasurerUid, name: c.treasurer)) ||
+        !listEquals(staff, c.staff);
+    if (!changed) return;
+    batch.update(_course(cid), {
+      'leaders': _leadersMap(chief, treasurer, staff),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (next != null) {
+      final role = chief == next ? 'chief' : (treasurer == next ? 'treasurer' : 'staff');
+      if (role != 'staff' || staff.contains(next)) _grant(batch, cid, next.uid, next.name, role);
     }
-    if (update.isEmpty) return;
-    batch.update(_course(cid), {...update, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
-  /// 반장·총무 정하기: 출석부에서 고른 사람([chief]·[treasurer], 없으면 null)에게 권한(`leaders/{uid}`)을 주고,
-  /// 그 밖의 인정은 모두 풀어요. 같은 사람을 다시 고르면(예전에 코드로 인정된 사람 포함) 권한이 그대로 이어져요.
-  Future<void> saveLeaders(Course c, {Member? chief, Member? treasurer}) async {
+  /// 반장·총무·양육국 정하기: 출석부에서 고른 사람([chief]·[treasurer]는 없으면 null, [staff]는 여럿)에게
+  /// 권한(`leaders/{uid}`)을 주고, 그 밖의 인정은 모두 풀어요. 같은 사람을 다시 고르면(예전에 코드로 인정된 사람 포함) 권한이 그대로 이어져요.
+  Future<void> saveLeaders(Course c, {Member? chief, Member? treasurer, List<Member> staff = const []}) async {
+    assert(staff.every((m) => m.uid != chief?.uid && m.uid != treasurer?.uid));
     // 오프라인 캐시 일부만 지우면 권한이 남으니 서버에서 읽어요
     final claims = await _course(c.id).collection('leaders').get(const GetOptions(source: Source.server));
-    final keep = {?chief?.uid, ?treasurer?.uid};
+    final keep = {?chief?.uid, ?treasurer?.uid, for (final m in staff) m.uid};
+    StaffRef? ref(Member? m) => m == null ? null : StaffRef(uid: m.uid, name: m.name);
     final batch = _db.batch();
     batch.update(_course(c.id), {
-      'leaders': {
-        'chief': chief?.name ?? '',
-        'treasurer': treasurer?.name ?? '',
-        'chiefUid': chief?.uid ?? '',
-        'treasurerUid': treasurer?.uid ?? '',
-      },
+      'leaders': _leadersMap(ref(chief), ref(treasurer), [for (final m in staff) ref(m)!]),
       'updatedAt': FieldValue.serverTimestamp(),
     });
     for (final d in claims.docs) {
       if (!keep.contains(d.id)) batch.delete(d.reference);
     }
-    for (final (m, role) in [(chief, 'chief'), (treasurer, 'treasurer')]) {
-      if (m == null) continue;
-      batch.set(_course(c.id).collection('leaders').doc(m.uid), {
-        'name': normalizeName(m.name),
-        'role': role,
-        'at': FieldValue.serverTimestamp(),
-      });
+    for (final (m, role) in [(chief, 'chief'), (treasurer, 'treasurer'), for (final m in staff) (m, 'staff')]) {
+      if (m != null) _grant(batch, c.id, m.uid, m.name, role);
     }
     await batch.commit();
   }

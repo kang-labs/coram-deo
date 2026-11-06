@@ -309,7 +309,7 @@ class _BasicSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const CardHeader(icon: Icons.badge_rounded, title: '반장·총무'),
+              const CardHeader(icon: Icons.badge_rounded, title: '반장·총무·양육국'),
               const SizedBox(height: 8),
               if (isNew)
                 const MutedText('반을 먼저 저장한 뒤 정할 수 있어요.', style: TextStyle(fontSize: 13))

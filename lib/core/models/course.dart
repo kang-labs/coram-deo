@@ -315,6 +315,30 @@ class ExtraRow {
   int get hashCode => Object.hash(label, date, title);
 }
 
+/// 출석부에서 고른 사람 하나 (양육국 목록 한 줄, 서버 `leaders.staff: [{uid, name}]`)
+@immutable
+class StaffRef {
+  const StaffRef({required this.uid, required this.name});
+
+  /// 그 폰의 익명 uid (출석부 문서 id)
+  final String uid;
+  final String name;
+
+  /// 모양이 다르거나 uid가 없으면 null(건너뜀)
+  static StaffRef? fromMap(Map<String, dynamic> m) {
+    final uid = _str(m['uid']);
+    return uid.isEmpty ? null : StaffRef(uid: uid, name: _str(m['name']));
+  }
+
+  Map<String, dynamic> toMap() => {'uid': uid, 'name': name};
+
+  @override
+  bool operator ==(Object other) => other is StaffRef && other.uid == uid && other.name == name;
+
+  @override
+  int get hashCode => Object.hash(uid, name);
+}
+
 /// 반 하나 = 한 학기 과정 하나 (Firestore `courses/{id}`)
 @immutable
 class Course {
@@ -329,6 +353,7 @@ class Course {
     this.treasurer = '',
     this.chiefUid = '',
     this.treasurerUid = '',
+    this.staff = const [],
     this.weekday = DateTime.saturday,
     this.time = '',
     this.order = 0,
@@ -363,13 +388,18 @@ class Course {
   final String chiefUid;
   final String treasurerUid;
 
+  /// 양육국: 출석부만 볼 수 있는 사람들 (여럿, 출석부 순서는 다른 사람과 같이 가나다순)
+  final List<StaffRef> staff;
+
   /// 이 사람(폰 uid, 이름)의 역할: '반장'·'총무'·null. 출석부에서 고른 반은 uid로만,
   /// 이름+코드로 정하던 예전 반(uid 없음)은 이름으로(띄어쓰기·영문 대소문자 무시) 봐요.
   /// 출석부를 볼 권한은 서버 `leaders/{uid}` 문서가 따로 있어야 해요.
   String? leaderRole(String uid, String name) {
-    if (chiefUid.isNotEmpty || treasurerUid.isNotEmpty) {
+    if (chiefUid.isNotEmpty || treasurerUid.isNotEmpty || staff.isNotEmpty) {
       if (uid.isEmpty) return null;
-      return uid == chiefUid ? '반장' : (uid == treasurerUid ? '총무' : null);
+      if (uid == chiefUid) return '반장';
+      if (uid == treasurerUid) return '총무';
+      return staff.any((s) => s.uid == uid) ? '양육국' : null;
     }
     final n = normalizeName(name);
     if (n.isEmpty) return null;
@@ -429,6 +459,7 @@ class Course {
       treasurer: _str(_map(m['leaders'])['treasurer']),
       chiefUid: _str(_map(m['leaders'])['chiefUid']),
       treasurerUid: _str(_map(m['leaders'])['treasurerUid']),
+      staff: [for (final e in _maps(_map(m['leaders'])['staff'])) ?StaffRef.fromMap(e)],
       weekday: _int(m['weekday'], DateTime.saturday).clamp(1, 7),
       time: _str(m['time']),
       order: _int(m['order'], 0),
@@ -448,7 +479,13 @@ class Course {
     'program': program,
     'cohort': cohort,
     'semester': semester,
-    'leaders': {'chief': chief, 'treasurer': treasurer, 'chiefUid': chiefUid, 'treasurerUid': treasurerUid},
+    'leaders': {
+      'chief': chief,
+      'treasurer': treasurer,
+      'chiefUid': chiefUid,
+      'treasurerUid': treasurerUid,
+      'staff': [for (final s in staff) s.toMap()],
+    },
     'weekday': weekday,
     'time': time,
     'order': order,
@@ -470,6 +507,7 @@ class Course {
     String? treasurer,
     String? chiefUid,
     String? treasurerUid,
+    List<StaffRef>? staff,
     int? weekday,
     String? time,
     int? order,
@@ -489,6 +527,7 @@ class Course {
     treasurer: treasurer ?? this.treasurer,
     chiefUid: chiefUid ?? this.chiefUid,
     treasurerUid: treasurerUid ?? this.treasurerUid,
+    staff: staff ?? this.staff,
     weekday: weekday ?? this.weekday,
     time: time ?? this.time,
     order: order ?? this.order,
@@ -513,6 +552,7 @@ class Course {
       other.treasurer == treasurer &&
       other.chiefUid == chiefUid &&
       other.treasurerUid == treasurerUid &&
+      listEquals(other.staff, staff) &&
       other.weekday == weekday &&
       other.time == time &&
       other.order == order &&
@@ -535,6 +575,7 @@ class Course {
     treasurer,
     chiefUid,
     treasurerUid,
+    Object.hashAll(staff),
     weekday,
     time,
     order,

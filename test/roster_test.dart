@@ -61,6 +61,29 @@ void main() {
     expect((next.chiefUid, next.treasurerUid), ('', ''));
   });
 
+  test('양육국: 여럿, uid로 보고, 서버 형식 읽기·쓰기, 모양이 다른 줄은 건너뜀, 새 학기 사본은 비움', () {
+    final c = Course.fromMap('a', {
+      'name': '양육A반',
+      'leaders': {
+        'chief': '',
+        'treasurer': '',
+        'chiefUid': '',
+        'treasurerUid': '',
+        'staff': [
+          {'uid': 's1', 'name': '박목사'},
+          {'uid': 's2', 'name': '최전도사'},
+          {'name': 'uid 없음'},
+          'bad',
+        ],
+      },
+    });
+    expect([for (final s in c.staff) s.uid], ['s1', 's2']);
+    expect(c.leaderRole('s2', '아무이름'), '양육국');
+    expect(c.leaderRole('x', '박목사'), isNull);
+    expect(Course.fromMap('a', c.toMap()), c);
+    expect(nextSemesterCopy(c, id: 'n', semester: 1).staff, isEmpty);
+  });
+
   test('반 사람: 같은 이름은 최근 것만, 이름 가나다순', () {
     final list = latestByName([_m('1', '이순신', 1), _m('2', '강감찬', 2), _m('3', '이 순신', 5), _m('4', '김유신', 3)]);
     expect([for (final m in list) m.name], ['강감찬', '김유신', '이 순신']);
@@ -80,6 +103,19 @@ void main() {
     final course = fakeCourse().copyWith(chief: '강감찬', chiefUid: '3', treasurerUid: '1', treasurer: '이순신');
     final rows = rosterOrder([_m('1', '이순신', 1), _m('2', '강감찬', 2), _m('3', '김유신', 3)], course);
     expect([for (final r in rows) (r.member.uid, r.role)], [('3', '반장'), ('1', '총무'), ('2', null)]);
+  });
+
+  test('출석부 순서: 양육국은 앞으로 올리지 않고 가나다순, 역할 글만', () {
+    final course = fakeCourse().copyWith(
+      chiefUid: '4',
+      chief: '홍길동',
+      staff: const [StaffRef(uid: '1', name: '가나다')],
+    );
+    final rows = rosterOrder([_m('1', '가나다', 1), _m('2', '강감찬', 2), _m('3', '나무', 3), _m('4', '홍길동', 4)], course);
+    expect(
+      [for (final r in rows) (r.member.name, r.role)],
+      [('홍길동', '반장'), ('가나다', '양육국'), ('강감찬', null), ('나무', null)],
+    );
   });
 
   testWidgets('처음 실행: 이름을 적어야 반 고르기로 넘어감', (tester) async {
@@ -370,9 +406,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          adminClassMembersProvider(
-            course.id,
-          ).overrideWith((ref) => Stream.value([_m('1', '이순신', 1), _m('2', '홍길동A', 2)])),
+          adminClassMembersProvider(course.id)
+              .overrideWith((ref) => Stream.value([_m('1', '이순신', 1), _m('2', '홍길동A', 2)])),
         ],
         child: MaterialApp(
           theme: AppTheme.of(AppThemeId.fallback),
