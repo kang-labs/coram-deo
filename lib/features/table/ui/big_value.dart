@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets.dart';
 import '../../../core/models/course.dart';
+import '../../record/logic/part_display.dart';
 import '../../record/logic/record_providers.dart';
 import '../../record/ui/mark_glyph.dart';
 import '../../week/logic/week_math.dart';
@@ -74,6 +75,11 @@ class BigValue extends ConsumerWidget {
       ),
     );
 
+    if (part.type.isScore) {
+      final text = scoreText(value);
+      if (text.isNotEmpty) return Text(text, style: big(p.ink));
+      // 숫자가 아니면 예전에 ○/X/·로 체크한 값이라 아래에서 그대로 그려요
+    }
     if (!part.type.isDaily) {
       final mark = MarkValue.fromCode(value);
       if (mark == null) return dash;

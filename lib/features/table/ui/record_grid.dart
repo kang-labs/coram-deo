@@ -395,6 +395,21 @@ class RecordCellView extends StatelessWidget {
         ),
       );
     }
+    if (type.isScore) {
+      final text = scoreText(entry.value);
+      // 숫자가 아니면 예전에 ○/X/·로 체크한 값이라 아래에서 그대로 그려요
+      if (text.isNotEmpty) {
+        // +100처럼 길어도 칸을 넘지 않게 줄여요
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            text,
+            maxLines: 1,
+            style: TextStyle(fontSize: metrics.dailyFont, fontWeight: FontWeight.w800, color: p.ink),
+          ),
+        );
+      }
+    }
     final mark = MarkValue.fromCode(entry.value);
     if (mark == null) return const SizedBox.shrink();
     final glyph = MarkGlyph(value: mark, color: markTone(mark).colors(p).$1, size: metrics.glyph);

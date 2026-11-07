@@ -45,18 +45,24 @@ enum PartType {
   attend('○ / X / 지각', [MarkValue.o, MarkValue.x, MarkValue.late]),
 
   /// 7일 체크 → 한 날 수 (성경·큐티·기도·새벽기도)
-  days('요일 (날 수)', []);
+  days('요일 (날 수)', []),
+
+  /// 점수 숫자 (강사 특별과제). 표에는 +5처럼 보여요. 0이나 빈칸은 없음.
+  score('점수 (+숫자)', []);
 
   const PartType(this.label, this.choices);
 
   /// 관리자 편집 화면에 보이는 이름
   final String label;
 
-  /// 고르는 칸의 선택지(버튼 순서). 비어 있으면 요일 칸.
+  /// 고르는 칸의 선택지(버튼 순서). 요일·점수 칸은 비어 있어요.
   final List<MarkValue> choices;
 
   /// 요일 7칸으로 체크하는 종류
-  bool get isDaily => choices.isEmpty;
+  bool get isDaily => this == days;
+
+  /// 점수 숫자를 적는 종류
+  bool get isScore => this == score;
 
   /// 예전 이름도 읽어요: 'dawn'(새벽 점수, 없앰) → days. 모르는 이름은 mark.
   static PartType fromName(String? name) {

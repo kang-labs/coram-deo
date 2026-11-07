@@ -65,6 +65,11 @@ void main() {
     expect(dailyCellText(0, started: true), '0'); // 시작된 주는 하나도 안 했으면 0
     expect(dailyCellText(null, started: true), '0');
     expect(dailyCellText(3, started: true), '2');
+    expect(scoreText(5), '+5'); // 강사 특별과제 점수
+    expect(scoreText(100), '+100');
+    expect(scoreText(0), '');
+    expect(scoreText('o'), ''); // 예전 ○ 체크는 따로 그려요
+    expect(scoreText(null), '');
     expect(dailyCellText(3), '2');
     expect(dailySummary(0x1F), '5/7');
     expect(dailySummary(0), '0/7');

@@ -14,5 +14,11 @@ bool weekCountsZero(WeekInfo w, DateTime today) {
   return !w.off && d != null && weekStarted(d, today);
 }
 
+/// 점수 칸 값을 표 글자로: +5. 숫자가 아니거나 0이면 '' (예전에 ○/X/·로 체크한 값은 [MarkValue]로 따로 그려요).
+String scoreText(Object? value) => value is int && value > 0 ? '+$value' : '';
+
+/// 점수 최대 자리 수
+const scoreMaxDigits = 3;
+
 /// 이번 주 화면의 요일 칸 옆 합계 (성경 5/7, 새벽기도 2/7)
 String dailySummary(int mask) => '${countDays(mask)}/$daysPerWeek';

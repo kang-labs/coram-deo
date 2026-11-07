@@ -178,3 +178,9 @@
 - 배포 순서: 규칙 먼저 → 관리자 폰 1.2.9 → 반장·총무 고르기. 규칙 시험 66/66.
 - 표 요일 칸 0 (1.2.9, 2026-11-06): 요일 칸을 하나도 안 했으면 시작된 주(`weekCountsZero` = 휴강 아님·날짜 있음·`weekStarted`)는 흐린 '0'(`p.inkSoft`), 아직 안 온 주는 빈칸. 내 체크표(주차 줄마다)·반 출석부(고른 주) 모두. `dailyCellText(value, started:)`.
 - 양육국 (1.2.9, 2026-11-06): 반 문서 `leaders.staff: [{uid, name}]`(`StaffRef`, 여럿), `leaders/{uid}` role 'staff'. 반장·총무처럼 출석부 보기만. 고르기 창 아래 FilterChip(반장·총무로 고른 사람은 빠짐), 저장 버튼 '저장'. 출석부 순서는 반장 → 총무 → 나머지(양육국 포함) 가나다, 줄 아래 '양육국' 글. `_passLeaders`도 양육국을 비우기·넘기기. 규칙 시험 69/69.
+
+## 강사 특별과제 점수 (1.2.10, 2026-11-08)
+
+- 새 칸 종류 `PartType.score`('점수 (+숫자)', 값 = int 1~999, 0·빈칸 = 없음). `isDaily`는 이제 `this == days`(예전엔 choices 비었는지라 score와 겹침), `isScore`.
+- 입력 `_ScoreInput`(part_inputs): 버튼 '점수 적기' / '+10' → 숫자 창(3자리, 비우면 지움), 주 시작 전엔 막힘. 표·출석부(`RecordCellView`, FittedBox)·주별 보기(`BigValue`)는 `scoreText` = '+n'. 점수 칸에 예전 ○/X/· 문자열이 있으면 그 기호로 보여 줌(`onlyFor`도 남김).
+- 기본 항목 task = score(dotReason 없앰), seed.py 같이. 서버 8개 반은 `python tool/dev/task_to_score.py`로 바꿈(items만, updateTime 조건). 옛 앱은 모르는 종류를 mark로 읽어 ○/X/·로 보임, 숫자 값은 빈칸.

@@ -91,7 +91,7 @@ void main() {
     expect(PartType.attend.choices.map((v) => v.buttonLabel), ['○', 'X', '지각']);
   });
 
-  test('dotReason: 기본 true는 저장에서 빼고, 없으면 true로 읽음, 강사 특별과제만 false', () {
+  test('dotReason: 기본 true는 저장에서 빼고, 없으면 true로 읽음, 기본 항목은 모두 true', () {
     const p = PartDef(id: 'main', label: '과제', type: PartType.mark);
     expect(p.toMap().containsKey('dotReason'), isFalse);
     final off = p.copyWith(dotReason: false);
@@ -107,8 +107,17 @@ void main() {
           for (final q in i.parts)
             if (!q.dotReason) i.id,
       ],
-      ['task'],
+      isEmpty,
     );
+  });
+
+  test('점수 칸: 강사 특별과제 기본값, 이름 저장·읽기, 요일 칸과 구별', () {
+    final task = defaultItems.firstWhere((i) => i.id == 'task').parts.single;
+    expect(task.type, PartType.score);
+    expect(PartType.fromName('score'), PartType.score);
+    expect(PartDef.fromMap(task.toMap(), itemId: 'task', index: 0), task);
+    expect((PartType.score.isScore, PartType.score.isDaily), (true, false));
+    expect((PartType.days.isScore, PartType.days.isDaily), (false, true));
   });
 
   test('서버 형식이 이상하거나 모르는 값이어도 멈추지 않고 기본값으로 읽음', () {

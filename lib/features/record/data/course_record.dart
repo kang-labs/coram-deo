@@ -96,6 +96,8 @@ class CourseRecord {
     };
     bool fits(PartType type, Object raw) {
       final v = raw is Map ? raw['v'] : raw;
+      // 점수 칸은 숫자, 예전에 ○/X/·로 체크한 값도 남겨요
+      if (type.isScore) return v is int || MarkValue.fromCode(v) != null;
       return type.isDaily ? v is int : type.choices.contains(MarkValue.fromCode(v));
     }
 

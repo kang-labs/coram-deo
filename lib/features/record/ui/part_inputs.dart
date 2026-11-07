@@ -75,19 +75,12 @@ class PartInput extends StatelessWidget {
     final labelStyle = title != null
         ? const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)
         : const TextStyle(fontSize: 14, fontWeight: FontWeight.w700);
-    final input = part.type.isDaily
-        ? _DailyInput(
-            part: part,
-            pref: ref,
-            classDate: classDate,
-            label: Text(label, style: labelStyle),
-          )
-        : _ChoiceInput(
-            part: part,
-            pref: ref,
-            classDate: classDate,
-            label: Text(label, style: labelStyle),
-          );
+    final labelText = Text(label, style: labelStyle);
+    final input = switch (part.type) {
+      PartType.days => _DailyInput(part: part, pref: ref, classDate: classDate, label: labelText),
+      PartType.score => _ScoreInput(part: part, pref: ref, classDate: classDate, label: labelText),
+      _ => _ChoiceInput(part: part, pref: ref, classDate: classDate, label: labelText),
+    };
     if (groupTitle == null) return input;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -185,6 +178,54 @@ class _ChoiceInput extends ConsumerWidget {
 
 /// 사유 최대 글자 수
 const noteMaxLength = 60;
+
+/// 점수 적기 (강사 특별과제). 누르면 숫자 창, 비우거나 0이면 지워요. 그 주가 시작 전이면 적을 수 없어요.
+class _ScoreInput extends ConsumerWidget {
+  const _ScoreInput({required this.part, required this.pref, required this.classDate, required this.label});
+
+  final PartDef part;
+  final PartRef pref;
+  final DateTime classDate;
+  final Widget label;
+
+  Future<void> _edit(BuildContext context, WidgetRef ref, Object? current) async {
+    final text = await showTextInputDialog(
+      context,
+      title: '${part.label} 점수',
+      message: '받은 점수를 숫자로 적어 주세요. 표에는 +5처럼 보여요.\n지우려면 비우고 저장해 주세요.',
+      label: '점수',
+      hint: '예: 5',
+      initialValue: current is int && current > 0 ? '$current' : '',
+      maxLength: scoreMaxDigits,
+      digitsOnly: true,
+      allowEmpty: true,
+    );
+    if (text == null) return;
+    final n = int.tryParse(text.trim()) ?? 0;
+    ref.read(courseRecordProvider.notifier).setValue(pref.week, pref.itemId, pref.partId, n > 0 ? n : null);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = ref.watch(courseRecordProvider.select((r) => r.entry(pref.week, pref.itemId, pref.partId))).value;
+    final started = ref.watch(todayProvider.select((t) => weekStarted(classDate, t)));
+    final text = scoreText(value);
+    // 예전에 ○/X/·로 체크한 값이면 그 글자를 보여 줘요(새로 적으면 바뀌어요)
+    final shown = text.isNotEmpty ? text : (MarkValue.fromCode(value)?.symbol ?? '점수 적기');
+    final filled = text.isNotEmpty || MarkValue.fromCode(value) != null;
+    return Row(
+      children: [
+        Expanded(child: label),
+        filled
+            ? FilledButton.tonal(
+                onPressed: !started ? null : () => _edit(context, ref, value),
+                child: Text(shown, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              )
+            : OutlinedButton(onPressed: !started ? null : () => _edit(context, ref, value), child: Text(shown)),
+      ],
+    );
+  }
+}
 
 /// 요일 7칸 (요일 + 날짜). 오늘은 테두리, 아직 오지 않은 날은 누를 수 없어요. 옆에 합계.
 class _DailyInput extends ConsumerWidget {

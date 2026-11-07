@@ -79,7 +79,7 @@ void main() {
 
     // 출석 버튼 순서 ○ / X / 지각, 교재예습은 ○ / X / ·, 구절암송은 ○ / X
     expect(find.bySemanticsLabel('지각'), findsOneWidget);
-    expect(find.bySemanticsLabel('·'), findsNWidgets(14)); // mark 칸 14개 (후기·금요기도회 등)
+    expect(find.bySemanticsLabel('·'), findsNWidgets(13)); // mark 칸 13개 (후기·금요기도회 등)
   });
 
   testWidgets('· 고르면 사유를 꼭 적고(취소하면 그대로), 줄 아래 보이며, 다른 값으로 바꾸면 지워짐', (tester) async {
@@ -109,13 +109,23 @@ void main() {
     expect(prefs.getString('rec.jedae2'), '{"6":{"prep":{"main":"o"}}}');
   });
 
-  testWidgets('강사 특별과제의 ·는 사유 없이 바로 골라짐', (tester) async {
+  testWidgets('강사 특별과제: 점수 숫자 적기 → +n, 비우면 지움', (tester) async {
     final (_, prefs) = await _pumpApp(tester);
-    // · 순서: 훈련 후기, 교재예습, 필독서, 강사 특별과제 …
-    await tester.tap(find.bySemanticsLabel('·').at(3));
+    await tester.scrollUntilVisible(find.text('점수 적기'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('점수 적기'));
     await tester.pumpAndSettle();
-    expect(find.text('사유'), findsNothing);
-    expect(prefs.getString('rec.jedae2'), '{"6":{"task":{"main":"dot"}}}');
+    await tester.enterText(find.byType(TextField), '10');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('rec.jedae2'), '{"6":{"task":{"main":10}}}');
+    expect(find.text('+10'), findsOneWidget);
+    await tester.tap(find.text('+10'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('rec.jedae2'), isNull);
+    expect(find.text('점수 적기'), findsOneWidget);
   });
 
   testWidgets('주차 넘기기, 이번 주로 돌아오기, 체크표 줄 누르면 그 주로', (tester) async {

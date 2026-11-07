@@ -371,6 +371,8 @@ void main() {
         .withValue(1, 'zzz', 'main', 'o') // 새 반에 없는 항목
         .withValue(2, 'prep', 'main', 'late') // 고르는 칸에 없는 값
         .withValue(2, 'bible', 'main', 127)
+        .withValue(2, 'task', 'main', 10) // 점수 칸
+        .withValue(3, 'task', 'main', 'o') // 점수 칸의 예전 ○ 체크
         .withValue(13, 'attend', 'att', 'o'); // 12주 반에 없는 주
     final kept = rec.onlyFor(fakeCourse());
     expect(kept.value(1, 'attend', 'att'), 'late');
@@ -378,7 +380,9 @@ void main() {
     expect(kept.value(1, 'zzz', 'main'), isNull);
     expect(kept.value(2, 'prep', 'main'), isNull);
     expect(kept.mask(2, 'bible', 'main'), 127);
-    expect(kept.weekCount, 2);
+    expect(kept.value(2, 'task', 'main'), 10);
+    expect(kept.value(3, 'task', 'main'), 'o');
+    expect(kept.weekCount, 3);
     final noAttend = fakeCourse().copyWith(
       items: [
         for (final i in fakeCourse().items)
